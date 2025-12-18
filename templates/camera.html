@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📱 Sistema de Capturas IoT</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 0; 
+            padding: 20px; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .container { 
+            max-width: 800px; 
+            margin: 0 auto; 
+            background: rgba(0,0,0,0.3);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+        .status { 
+            padding: 15px; 
+            margin: 10px 0; 
+            border-radius: 8px; 
+            font-weight: bold;
+        }
+        .online { background: rgba(76, 175, 80, 0.8); }
+        .offline { background: rgba(244, 67, 54, 0.8); }
+        .alert { background: rgba(255, 152, 0, 0.9); animation: pulse 1s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 0.8; } 50% { opacity: 1; } }
+        .btn { 
+            padding: 12px 24px; 
+            margin: 10px; 
+            background: #4CAF50; 
+            color: white; 
+            border: none; 
+            border-radius: 6px; 
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .btn:hover { background: #45a049; }
+        .btn:disabled { background: #666; cursor: not-allowed; }
+        .camera-container { 
+            text-align: center; 
+            margin: 20px 0; 
+        }
+        .hidden { display: none; }
+        #video { 
+            width: 100%; 
+            max-width: 400px; 
+            border-radius: 10px;
+        }
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            background: #ff4444;
+            color: white;
+            border-radius: 8px;
+            font-weight: bold;
+            z-index: 1000;
+            animation: slideIn 0.3s ease-out;
+        }
+        @keyframes slideIn { from { right: -300px; } to { right: 20px; } }
+        .log {
+            background: rgba(0,0,0,0.5);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📱 Sistema de Capturas IoT</h1>
+        <p>🔥 Detección automática de incendios con cámara inteligente</p>
+        
+        <div id="status" class="status offline">
+            📴 Desconectado del servidor
+        </div>
+
+        <div class="camera-container">
+            <button id="startCamera" class="btn">📷 Iniciar Cámara</button>
+            <button id="stopCamera" class="btn hidden">🛑 Detener Cámara</button>
+            <br>
+            <video id="video" class="hidden" autoplay playsinline></video>
+            <canvas id="canvas" class="hidden"></canvas>
+        </div>
+
+        <div class="log">
+            <div id="log"></div>
+        </div>
+    </div>
+
+    <script>
+        class IoTCameraSystem {
+            constructor() {
+                this.serverUrl = 'https://project-iot-481620.ue.r.appspot.com';
+                this.video = document.getElementById('video');
+                this.canvas = document.getElementById('canvas');
+                this.statusDiv = document.getElementById('status');
+                this.logDiv = document.getElementById('log');
+                this.mediaStream = null;
+                this.isMonitoring = false;
+                this.mediaRecorder = null;
+                this.audioRecorder = null;
+                
+                this.init();
+            }
+
+            init() {
+                this.setupEventListeners();
+                this.startMonitoring();
+                this.requestNotificationPermission();
+            }
+
+            setupEventListeners() {
+                document.getElementById('startCamera').onclick = () => this.startCamera();
+                document.getElementById('stopCamera').onclick = () => this.stopCamera();
+                
+                // Registrar Service Worker para notificaciones push
+                if ('serviceWorker' in navigator && 'PushManager' in window) {
+                    navigator.serviceWorker.register('/sw.js')
+                        .then(registration => {
+                            console.log('Service Worker registrado:', registration);
+                        })
+                        .catch(error => {
+                            console.error('Error registrando Service Worker:', error);
+                        });
+                }
+            }
+
+            async requestNotificationPermission() {
+                if ('Notification' in window) {
+                    const permission = await Notification.requestPermission();
+                    if (permission === 'granted') {
+                        this.log('✅ Permisos de notificación concedidos');
+                    }
+                }
+            }
+
+            async startCamera() {
+                try {
+                    this.mediaStream = await navigator.mediaDevices.getUserMedia({ 
+                        video: { 
+                            facingMode: 'environment',  // Cámara trasera preferida
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 }
+                        }, 
+                        audio: true 
+                    });
+                    
+                    this.video.srcObject = this.mediaStream;
+                    this.video.classList.remove('hidden');
+                    
+                    document.getElementById('startCamera').classList.add('hidden');
+                    document.getElementById('stopCamera').classList.remove('hidden');
+                    
+                    this.updateStatus('📹 Cámara activa - Esperando alertas...', 'online');
+                    this.log('📷 Cámara iniciada correctamente');
+                    
+                } catch (error) {
+                    this.log(`❌ Error accediendo a la cámara: ${error.message}`);
+                    this.showNotification('Error al acceder a la cámara');
+                }
+            }
+
+            stopCamera() {
+                if (this.mediaStream) {
+                    this.mediaStream.getTracks().forEach(track => track.stop());
+                    this.mediaStream = null;
+                }
+                
+                this.video.classList.add('hidden');
+                document.getElementById('startCamera').classList.remove('hidden');
+                document.getElementById('stopCamera').classList.add('hidden');
+                
+                this.updateStatus('📴 Cámara desactivada', 'offline');
+                this.log('🛑 Cámara detenida');
+            }
+
+            startMonitoring() {
+                this.isMonitoring = true;
+                this.checkForAlerts();
+            }
+
+            async checkForAlerts() {
+                if (!this.isMonitoring) return;
+
+                try {
+                    const response = await fetch(`${this.serverUrl}/status`);
+                    const data = await response.json();
+                    
+                    if (data.status === 'online') {
+                        // Verificar si hay alertas recientes
+                        const alertsResponse = await fetch(`${this.serverUrl}/alertas`);
+                        const alertsData = await alertsResponse.json();
+                        
+                        if (alertsData.alertas && alertsData.alertas.length > 0) {
+                            const lastAlert = alertsData.alertas[alertsData.alertas.length - 1];
+                            const alertTime = new Date(lastAlert.timestamp);
+                            const now = new Date();
+                            
+                            // Si la alerta fue en los últimos 30 segundos
+                            if (now - alertTime < 30000 && lastAlert.estado === 'alert') {
+                                this.handleFireAlert(lastAlert);
+                            }
+                        }
+                        
+                        this.updateStatus('🔗 Conectado al servidor IoT', 'online');
+                    }
+                } catch (error) {
+                    this.updateStatus('❌ Error de conexión', 'offline');
+                    this.log(`🔴 Error: ${error.message}`);
+                }
+
+                // Revisar cada 5 segundos
+                setTimeout(() => this.checkForAlerts(), 5000);
+            }
+
+            async handleFireAlert(alertData) {
+                this.updateStatus('🚨 ¡ALERTA DE FUEGO DETECTADA!', 'alert');
+                this.showNotification('🔥 ¡FUEGO DETECTADO! Capturando evidencia...');
+                this.log(`🔥 ALERTA: Temp: ${alertData.temperatura}°C, Luz: ${alertData.luz}`);
+
+                // Auto-activar cámara si no está activa
+                if (!this.mediaStream) {
+                    await this.startCamera();
+                    await this.sleep(2000); // Esperar 2 segundos para estabilizar
+                }
+
+                if (this.mediaStream) {
+                    await this.captureEvidence();
+                }
+            }
+
+            async captureEvidence() {
+                try {
+                    // 1. Capturar foto
+                    await this.capturePhoto();
+                    
+                    // 2. Grabar video de 10 segundos
+                    await this.recordVideo(10000);
+                    
+                    // 3. Grabar audio de 10 segundos
+                    await this.recordAudio(10000);
+                    
+                    this.log('✅ Evidencia capturada y enviada al servidor');
+                    
+                } catch (error) {
+                    this.log(`❌ Error capturando evidencia: ${error.message}`);
+                }
+            }
+
+            async capturePhoto() {
+                if (!this.mediaStream) return;
+
+                const canvas = this.canvas;
+                const context = canvas.getContext('2d');
+                
+                canvas.width = this.video.videoWidth;
+                canvas.height = this.video.videoHeight;
+                context.drawImage(this.video, 0, 0);
+                
+                canvas.toBlob(async (blob) => {
+                    const formData = new FormData();
+                    formData.append('photo', blob, `emergency_photo_${Date.now()}.jpg`);
+                    
+                    try {
+                        const response = await fetch(`${this.serverUrl}/upload/photo`, {
+                            method: 'POST',
+                            body: formData
+                        });
+                        
+                        if (response.ok) {
+                            this.log('📸 Foto de emergencia enviada');
+                        }
+                    } catch (error) {
+                        this.log(`❌ Error enviando foto: ${error.message}`);
+                    }
+                }, 'image/jpeg', 0.8);
+            }
+
+            async recordVideo(duration) {
+                if (!this.mediaStream) return;
+
+                return new Promise((resolve, reject) => {
+                    const chunks = [];
+                    this.mediaRecorder = new MediaRecorder(this.mediaStream, {
+                        mimeType: 'video/webm'
+                    });
+
+                    this.mediaRecorder.ondataavailable = (event) => {
+                        if (event.data.size > 0) chunks.push(event.data);
+                    };
+
+                    this.mediaRecorder.onstop = async () => {
+                        const blob = new Blob(chunks, { type: 'video/webm' });
+                        const formData = new FormData();
+                        formData.append('video', blob, `emergency_video_${Date.now()}.webm`);
+                        
+                        try {
+                            const response = await fetch(`${this.serverUrl}/upload/video`, {
+                                method: 'POST',
+                                body: formData
+                            });
+                            
+                            if (response.ok) {
+                                this.log('🎥 Video de emergencia enviado');
+                            }
+                            resolve();
+                        } catch (error) {
+                            this.log(`❌ Error enviando video: ${error.message}`);
+                            reject(error);
+                        }
+                    };
+
+                    this.mediaRecorder.start();
+                    this.log('🎥 Iniciando grabación de video...');
+                    
+                    setTimeout(() => {
+                        this.mediaRecorder.stop();
+                        this.log('🎥 Video grabado');
+                    }, duration);
+                });
+            }
+
+            async recordAudio(duration) {
+                if (!this.mediaStream) return;
+
+                return new Promise((resolve, reject) => {
+                    const audioStream = this.mediaStream.getAudioTracks();
+                    if (audioStream.length === 0) {
+                        resolve();
+                        return;
+                    }
+
+                    const chunks = [];
+                    this.audioRecorder = new MediaRecorder(new MediaStream([audioStream[0]]), {
+                        mimeType: 'audio/webm'
+                    });
+
+                    this.audioRecorder.ondataavailable = (event) => {
+                        if (event.data.size > 0) chunks.push(event.data);
+                    };
+
+                    this.audioRecorder.onstop = async () => {
+                        const blob = new Blob(chunks, { type: 'audio/webm' });
+                        const formData = new FormData();
+                        formData.append('audio', blob, `emergency_audio_${Date.now()}.webm`);
+                        
+                        try {
+                            const response = await fetch(`${this.serverUrl}/upload/audio`, {
+                                method: 'POST',
+                                body: formData
+                            });
+                            
+                            if (response.ok) {
+                                this.log('🎵 Audio de emergencia enviado');
+                            }
+                            resolve();
+                        } catch (error) {
+                            this.log(`❌ Error enviando audio: ${error.message}`);
+                            reject(error);
+                        }
+                    };
+
+                    this.audioRecorder.start();
+                    this.log('🎵 Iniciando grabación de audio...');
+                    
+                    setTimeout(() => {
+                        this.audioRecorder.stop();
+                        this.log('🎵 Audio grabado');
+                    }, duration);
+                });
+            }
+
+            updateStatus(message, className) {
+                this.statusDiv.textContent = message;
+                this.statusDiv.className = `status ${className}`;
+            }
+
+            showNotification(message) {
+                // Notificación del navegador
+                if (Notification.permission === 'granted') {
+                    new Notification('🔥 Sistema IoT', {
+                        body: message,
+                        icon: '/icon.png',
+                        badge: '/badge.png'
+                    });
+                }
+
+                // Notificación visual
+                const notification = document.createElement('div');
+                notification.className = 'notification';
+                notification.textContent = message;
+                document.body.appendChild(notification);
+
+                setTimeout(() => {
+                    notification.remove();
+                }, 5000);
+            }
+
+            log(message) {
+                const timestamp = new Date().toLocaleTimeString();
+                this.logDiv.innerHTML = `[${timestamp}] ${message}<br>` + this.logDiv.innerHTML;
+                
+                // Mantener solo las últimas 50 líneas
+                const lines = this.logDiv.innerHTML.split('<br>');
+                if (lines.length > 50) {
+                    this.logDiv.innerHTML = lines.slice(0, 50).join('<br>');
+                }
+            }
+
+            sleep(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms));
+            }
+        }
+
+        // Inicializar sistema cuando la página carga
+        window.addEventListener('load', () => {
+            new IoTCameraSystem();
+        });
+    </script>
+</body>
+</html>

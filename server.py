@@ -1,5 +1,5 @@
 # server.py (MODIFICADO)
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from datetime import datetime
 import sys
 import os
@@ -7,6 +7,8 @@ import requests
 import time
 from dotenv import load_dotenv
 from google.cloud import storage
+from google.auth import default
+from google.auth.transport.requests import Request
 
 # Cargar variables de entorno
 load_dotenv()
@@ -30,6 +32,29 @@ DURATION = int(os.getenv('DURATION', '5'))           # Duración en segundos
 # Configuración Cloud Storage
 BUCKET_NAME = os.getenv('BUCKET_NAME', 'iot-captures-481620')
 storage_client = storage.Client()
+
+# Configuración Vertex AI
+VERTEX_AI_ENDPOINT = os.getenv('VERTEX_AI_ENDPOINT', 'https://southamerica-east1-aiplatform.googleapis.com/v1/projects/peaceful-impact-478922-t6/locations/southamerica-east1/endpoints/4530889505971896320:predict')
+VERTEX_AI_PROJECT = os.getenv('VERTEX_AI_PROJECT', 'peaceful-impact-478922-t6')
+
+# Cliente de autenticación
+try:
+    # Intentar usar credenciales por defecto (funciona en App Engine)
+    credentials, project = default()
+    print(f"   [AUTH] Usando credenciales por defecto, proyecto: {project}")
+except Exception as e:
+    print(f"   [AUTH] Error obteniendo credenciales: {e}")
+    credentials, project = None, None
+
+def get_auth_token():
+    """Obtener token de autenticación de Google Cloud"""
+    try:
+        if credentials and not credentials.valid:
+            credentials.refresh(Request())
+        return credentials.token if credentials else None
+    except Exception as e:
+        print(f"   [ERROR AUTH] {e}")
+        return None
 
 alertas = []
 
@@ -55,6 +80,109 @@ def upload_to_cloud_storage(file_path, destination_blob_name):
         print(f"   [ERROR CLOUD] {e}")
         return None
 
+def analyze_with_vertex_ai(file_gcs_uri, file_type='image'):
+    """Analizar archivo con Vertex AI para detección de fuego"""
+    try:
+        # Verificar que tenemos token de autenticación
+        auth_token = get_auth_token()
+        if not auth_token:
+            print(f"   [VERTEX AI] Sin token de autenticación, saltando análisis")
+            return {
+                'fire_detected': False,
+                'confidence': 0.0,
+                'error': 'No authentication token available'
+            }
+
+        if file_type == 'image':
+            payload = {
+                "instances": [{"image_url": file_gcs_uri}]
+            }
+        else:  # video
+            payload = {
+                "instances": [{"video_url": file_gcs_uri}],
+                "parameters": {
+                    "frame_interval": 10,
+                    "max_detections": 20,
+                    "analyze_audio": True,
+                    "audio_top_k": 3
+                }
+            }
+
+        headers = {
+            "Authorization": f"Bearer {auth_token}",
+            "Content-Type": "application/json"
+        }
+
+        print(f"   [VERTEX AI] Analizando {file_type}: {file_gcs_uri}")
+        
+        response = requests.post(
+            VERTEX_AI_ENDPOINT,
+            headers=headers,
+            json=payload,
+            timeout=180
+        )
+
+        if response.status_code == 200:
+            result = response.json()
+            
+            # Procesar resultado
+            fire_detected = False
+            confidence = 0.0
+            detections_count = 0
+            
+            if 'predictions' in result:
+                for prediction in result['predictions']:
+                    if 'detections' in prediction:
+                        for detection in prediction['detections']:
+                            if file_type == 'image':
+                                for det in detection.get('detections', []):
+                                    detections_count += 1
+                                    if 'fire' in det.get('class', '').lower() or 'smoke' in det.get('class', '').lower():
+                                        fire_detected = True
+                                        confidence = max(confidence, det.get('confidence', 0))
+                            else:  # video
+                                for det in detection.get('detections', []):
+                                    detections_count += 1
+                                    if 'fire' in det.get('class', '').lower() or 'smoke' in det.get('class', '').lower():
+                                        fire_detected = True
+                                        confidence = max(confidence, det.get('confidence', 0))
+            
+            details = {
+                'fire_detected': fire_detected,
+                'confidence': confidence,
+                'detections_count': detections_count,
+                'analysis_timestamp': datetime.now().isoformat(),
+                'file_type': file_type,
+                'gcs_uri': file_gcs_uri
+            }
+            
+            status_msg = "🔥 FUEGO DETECTADO" if fire_detected else "✅ Sin fuego detectado"
+            print(f"   [VERTEX AI] {status_msg}: Confianza={confidence:.2%}, Detecciones={detections_count}")
+            return details
+            
+        elif response.status_code == 403:
+            print(f"   [VERTEX AI] Sin permisos para acceder al endpoint del equipo")
+            return {
+                'fire_detected': False,
+                'confidence': 0.0,
+                'error': 'Insufficient permissions for Vertex AI endpoint'
+            }
+        else:
+            print(f"   [ERROR VERTEX AI] Status: {response.status_code}, {response.text}")
+            return {
+                'fire_detected': False,
+                'confidence': 0.0,
+                'error': f'API Error: {response.status_code}'
+            }
+
+    except Exception as e:
+        print(f"   [ERROR VERTEX AI] {e}")
+        return {
+            'fire_detected': False,
+            'confidence': 0.0,
+            'error': str(e)
+        }
+
 # ============================================
 # FUNCIONES DE CAPTURA
 # ============================================
@@ -77,12 +205,22 @@ def capture_photo():
             cloud_filename = f"photos/photo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
             cloud_url = upload_to_cloud_storage(local_filename, cloud_filename)
 
+            # Analizar con Vertex AI
+            gcs_uri = f"gs://{BUCKET_NAME}/{cloud_filename}"
+            vertex_result = analyze_with_vertex_ai(gcs_uri, 'image')
+
             # Limpiar archivo temporal
             if os.path.exists(local_filename):
                 os.remove(local_filename)
 
             print(f"   [FOTO] Guardada en Cloud: {cloud_url}")
-            return cloud_url
+            
+            # Retornar info completa
+            return {
+                'url': cloud_url,
+                'gcs_uri': gcs_uri,
+                'vertex_analysis': vertex_result
+            }
         return None
     except Exception as e:
         print(f"   [ERROR FOTO] {e}")
@@ -131,13 +269,23 @@ def record_video(duration=5):
         cloud_filename = f"videos/video_{timestamp}.mp4"
         cloud_url = upload_to_cloud_storage(final_file, cloud_filename)
 
+        # Analizar con Vertex AI
+        gcs_uri = f"gs://{BUCKET_NAME}/{cloud_filename}"
+        vertex_result = analyze_with_vertex_ai(gcs_uri, 'video')
+
         # Borrar archivos temporales
         for temp_file in [raw_file, final_file]:
             if os.path.exists(temp_file):
                 os.remove(temp_file)
 
         print(f"   [VIDEO] Guardado en Cloud: {cloud_url}")
-        return cloud_url
+        
+        # Retornar info completa
+        return {
+            'url': cloud_url,
+            'gcs_uri': gcs_uri,
+            'vertex_analysis': vertex_result
+        }
 
     except Exception as e:
         print(f"   [ERROR VIDEO] {e}")
@@ -211,8 +359,15 @@ def home():
         <li>POST /alert - Recibir alertas del Arduino</li>
         <li>GET /status - Estado del servidor</li>
         <li>GET /alertas - Historial de alertas</li>
+        <li>GET /camera - Sistema de cámara inteligente</li>
     </ul>
+    <p><a href="/camera" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">📱 Abrir Cámara Inteligente</a></p>
     """
+
+@app.route('/camera')
+def camera_system():
+    """Página web del sistema de cámara inteligente"""
+    return render_template('camera.html')
 
 @app.route('/status', methods=['GET'])
 def status():
@@ -259,12 +414,22 @@ def recibir_alerta():
             foto = capture_photo()
             if foto:
                 alerta["archivos"]["photo"] = foto
+                # Agregar análisis de Vertex AI si está disponible
+                if isinstance(foto, dict) and foto.get('vertex_analysis'):
+                    alerta["vertex_ai_analysis"] = {
+                        "photo": foto['vertex_analysis']
+                    }
             
             # Capturar video
             if CAPTURE_VIDEO:
                 video = record_video(duration=DURATION)
                 if video:
                     alerta["archivos"]["video"] = video
+                    # Agregar análisis de Vertex AI si está disponible
+                    if isinstance(video, dict) and video.get('vertex_analysis'):
+                        if "vertex_ai_analysis" not in alerta:
+                            alerta["vertex_ai_analysis"] = {}
+                        alerta["vertex_ai_analysis"]["video"] = video['vertex_analysis']
             
             # Capturar audio
             if CAPTURE_AUDIO:
@@ -296,6 +461,117 @@ def ver_alertas():
         "total": len(alertas),
         "alertas": alertas[-10:]
     })
+
+@app.route('/upload/photo', methods=['POST'])
+def upload_photo():
+    """Recibir foto directamente desde el celular"""
+    try:
+        if 'photo' not in request.files:
+            return jsonify({"error": "No se encontró archivo de foto"}), 400
+        
+        file = request.files['photo']
+        if file.filename == '':
+            return jsonify({"error": "No se seleccionó archivo"}), 400
+        
+        # Guardar temporalmente
+        os.makedirs("temp_captures", exist_ok=True)
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        temp_path = f"temp_captures/emergency_photo_{timestamp}.jpg"
+        file.save(temp_path)
+        
+        # Subir a Cloud Storage
+        cloud_filename = f"photos/emergency_photo_{timestamp}.jpg"
+        cloud_url = upload_to_cloud_storage(temp_path, cloud_filename)
+        
+        # Limpiar archivo temporal
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        
+        print(f"   [EMERGENCY PHOTO] Recibida desde celular: {cloud_url}")
+        
+        return jsonify({
+            "status": "success",
+            "message": "Foto de emergencia recibida",
+            "url": cloud_url
+        }), 200
+        
+    except Exception as e:
+        print(f"   [ERROR PHOTO] {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/upload/video', methods=['POST'])
+def upload_video():
+    """Recibir video directamente desde el celular"""
+    try:
+        if 'video' not in request.files:
+            return jsonify({"error": "No se encontró archivo de video"}), 400
+        
+        file = request.files['video']
+        if file.filename == '':
+            return jsonify({"error": "No se seleccionó archivo"}), 400
+        
+        # Guardar temporalmente
+        os.makedirs("temp_captures", exist_ok=True)
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        temp_path = f"temp_captures/emergency_video_{timestamp}.webm"
+        file.save(temp_path)
+        
+        # Subir a Cloud Storage
+        cloud_filename = f"videos/emergency_video_{timestamp}.webm"
+        cloud_url = upload_to_cloud_storage(temp_path, cloud_filename)
+        
+        # Limpiar archivo temporal
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        
+        print(f"   [EMERGENCY VIDEO] Recibido desde celular: {cloud_url}")
+        
+        return jsonify({
+            "status": "success",
+            "message": "Video de emergencia recibido",
+            "url": cloud_url
+        }), 200
+        
+    except Exception as e:
+        print(f"   [ERROR VIDEO] {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/upload/audio', methods=['POST'])
+def upload_audio():
+    """Recibir audio directamente desde el celular"""
+    try:
+        if 'audio' not in request.files:
+            return jsonify({"error": "No se encontró archivo de audio"}), 400
+        
+        file = request.files['audio']
+        if file.filename == '':
+            return jsonify({"error": "No se seleccionó archivo"}), 400
+        
+        # Guardar temporalmente
+        os.makedirs("temp_captures", exist_ok=True)
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        temp_path = f"temp_captures/emergency_audio_{timestamp}.webm"
+        file.save(temp_path)
+        
+        # Subir a Cloud Storage
+        cloud_filename = f"audio/emergency_audio_{timestamp}.webm"
+        cloud_url = upload_to_cloud_storage(temp_path, cloud_filename)
+        
+        # Limpiar archivo temporal
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        
+        print(f"   [EMERGENCY AUDIO] Recibido desde celular: {cloud_url}")
+        
+        return jsonify({
+            "status": "success",
+            "message": "Audio de emergencia recibido",
+            "url": cloud_url
+        }), 200
+        
+    except Exception as e:
+        print(f"   [ERROR AUDIO] {e}")
+        return jsonify({"error": str(e)}), 500
 
 # ============================================
 # MAIN

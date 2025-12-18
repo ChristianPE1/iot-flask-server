@@ -1,4 +1,21 @@
-# 🔥 Servidor IoT - Detección de Fuego
+# 🔥## 🚀 **Caracter## 📡 **Endpoints**
+
+- `GET /` - Panel de estado del servidor
+- `GET /camera` - **Sistema de cámara inteligente** 📱
+- `POST /alert` - Recibir alertas del Arduino
+- `GET /status` - Estado del servidor (JSON)
+- `GET /alertas` - Historial de alertas con análisis de IA (JSON)
+- `POST /upload/photo` - Recibir foto desde celular
+- `POST /upload/video` - Recibir video desde celular
+- `POST /upload/audio` - Recibir audio desde celulars**
+
+- **API REST** para recibir alertas de sensores Arduino
+- **Sistema de cámara inteligente** que se activa automáticamente con alertas
+- **Procesamiento multimedia** con FFmpeg y almacenamiento en la nube
+- **Análisis con IA** mediante Vertex AI para detección de fuego/humo
+- **Notificaciones push** al celular en tiempo real
+- **Historial de alertas** con análisis de IA incluido
+- **Interfaz web** moderna para monitoreo en tiempo realor IoT - Detección de Fuego
 
 Sistema de monitoreo IoT que recibe alertas de sensores Arduino y captura multimedia automáticamente desde dispositivos móviles cuando se detecta una emergencia.
 
@@ -144,9 +161,23 @@ gsutil ls gs://iot-captures-481620/**
 | `PORT` | Puerto del servidor | `5000` |
 | `FLASK_ENV` | Entorno Flask | `production` |
 
-## 📞 Soporte
+## � **Cómo usar el sistema:**
+
+1. **Configura tu Arduino** con el código actualizado (usa HTTPS y puerto 443)
+2. **Abre el sistema de cámara** en tu celular: `https://project-iot-481620.ue.r.appspot.com/camera`
+3. **Dale permisos** de cámara, micrófono y notificaciones
+4. **¡El sistema funcionará automáticamente!** 
+   - Arduino detecta calor/luz → Envía alerta → Celular captura evidencia → IA analiza contenido
+
+## 📱 **Sistema de Cámara Inteligente:**
+- Se activa **solo cuando hay alertas** de fuego
+- Captura **foto + video + audio** automáticamente
+- **Notificaciones push** en tiempo real
+- **Análisis con IA** para verificar presencia de fuego/humo
+
+## �📞 Soporte
 
 Para problemas o mejoras, contactar a: **christianyunho@gmail.com**
 
 ---
-*Proyecto IoT - Sistema de Detección de Incendios 🔥*
+**¡Tu sistema IoT inteligente con IA está listo para detectar incendios en tiempo real!** 🔥🚨🤖
