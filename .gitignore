@@ -1,0 +1,37 @@
+# Archivos de Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Entorno virtual
+venv/
+env/
+ENV/
+
+# Variables de entorno
+.env
+
+# Archivos multimedia capturados
+captures/
+*.jpg
+*.mp4
+*.mp3
+*.wav
+*.mjpeg
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+
+# Heroku
+.heroku/
