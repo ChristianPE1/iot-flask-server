@@ -6,6 +6,7 @@ import os
 import requests
 import time
 from dotenv import load_dotenv
+from google.cloud import storage
 
 # Cargar variables de entorno
 load_dotenv()
@@ -26,27 +27,62 @@ CAPTURE_VIDEO = os.getenv('CAPTURE_VIDEO', 'True').lower() == 'true'   # Si capt
 CAPTURE_AUDIO = os.getenv('CAPTURE_AUDIO', 'True').lower() == 'true'   # Si capturar audio
 DURATION = int(os.getenv('DURATION', '5'))           # Duración en segundos
 
+# Configuración Cloud Storage
+BUCKET_NAME = os.getenv('BUCKET_NAME', 'iot-captures-481620')
+storage_client = storage.Client()
+
 alertas = []
+
+# ============================================
+# FUNCIONES CLOUD STORAGE
+# ============================================
+
+def upload_to_cloud_storage(file_path, destination_blob_name):
+    """Sube un archivo a Google Cloud Storage y retorna la URL pública"""
+    try:
+        bucket = storage_client.bucket(BUCKET_NAME)
+        blob = bucket.blob(destination_blob_name)
+
+        blob.upload_from_filename(file_path)
+
+        # Hacer el archivo público
+        blob.make_public()
+
+        print(f"   [CLOUD] Archivo subido: {blob.public_url}")
+        return blob.public_url
+
+    except Exception as e:
+        print(f"   [ERROR CLOUD] {e}")
+        return None
 
 # ============================================
 # FUNCIONES DE CAPTURA
 # ============================================
 
 def capture_photo():
-    """Captura foto del celular"""
+    """Captura foto del celular y la sube a Cloud Storage"""
     try:
         url = f"{PHONE_IP}/photo.jpg"
         response = requests.get(url, timeout=10)
-        
+
         if response.status_code == 200:
-            os.makedirs("captures", exist_ok=True)
-            filename = f"captures/photo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
-            
-            with open(filename, 'wb') as f:
+            # Crear directorio temporal local
+            os.makedirs("temp_captures", exist_ok=True)
+            local_filename = f"temp_captures/photo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
+
+            with open(local_filename, 'wb') as f:
                 f.write(response.content)
-            
-            print(f"   [FOTO] Guardada: {filename}")
-            return filename
+
+            # Subir a Cloud Storage
+            cloud_filename = f"photos/photo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
+            cloud_url = upload_to_cloud_storage(local_filename, cloud_filename)
+
+            # Limpiar archivo temporal
+            if os.path.exists(local_filename):
+                os.remove(local_filename)
+
+            print(f"   [FOTO] Guardada en Cloud: {cloud_url}")
+            return cloud_url
         return None
     except Exception as e:
         print(f"   [ERROR FOTO] {e}")
@@ -55,14 +91,15 @@ def capture_photo():
 def record_video(duration=5):
     """
     Graba video desde el celular (stream MJPEG) durante N segundos
-    y lo convierte a MP4 válido usando FFmpeg.
+    y lo convierte a MP4 válido usando FFmpeg, luego lo sube a Cloud Storage.
     """
     try:
-        os.makedirs("captures", exist_ok=True)
+        # Crear directorio temporal local
+        os.makedirs("temp_captures", exist_ok=True)
 
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        raw_file = f"captures/video_{timestamp}.mjpeg"
-        final_file = f"captures/video_{timestamp}.mp4"
+        raw_file = f"temp_captures/video_{timestamp}.mjpeg"
+        final_file = f"temp_captures/video_{timestamp}.mp4"
 
         url = f"{PHONE_IP}/video"
 
@@ -90,12 +127,17 @@ def record_video(duration=5):
 
         os.system(ffmpeg_cmd)
 
-        # Borrar archivo temporal
-        if os.path.exists(raw_file):
-            os.remove(raw_file)
+        # Subir a Cloud Storage
+        cloud_filename = f"videos/video_{timestamp}.mp4"
+        cloud_url = upload_to_cloud_storage(final_file, cloud_filename)
 
-        print(f"   [VIDEO] Guardado: {final_file}")
-        return final_file
+        # Borrar archivos temporales
+        for temp_file in [raw_file, final_file]:
+            if os.path.exists(temp_file):
+                os.remove(temp_file)
+
+        print(f"   [VIDEO] Guardado en Cloud: {cloud_url}")
+        return cloud_url
 
     except Exception as e:
         print(f"   [ERROR VIDEO] {e}")
@@ -104,14 +146,15 @@ def record_video(duration=5):
 def record_audio(duration=5):
     """
     Graba audio desde el celular durante N segundos,
-    lo guarda como WAV y lo convierte a MP3 válido.
+    lo guarda como WAV y lo convierte a MP3 válido, luego lo sube a Cloud Storage.
     """
     try:
-        os.makedirs("captures", exist_ok=True)
+        # Crear directorio temporal local
+        os.makedirs("temp_captures", exist_ok=True)
 
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        wav_file = f"captures/audio_{timestamp}.wav"
-        mp3_file = f"captures/audio_{timestamp}.mp3"
+        wav_file = f"temp_captures/audio_{timestamp}.wav"
+        mp3_file = f"temp_captures/audio_{timestamp}.mp3"
 
         url = f"{PHONE_IP}/audio.wav"
 
@@ -138,12 +181,17 @@ def record_audio(duration=5):
 
         os.system(ffmpeg_cmd)
 
-        # Limpiar WAV temporal
-        if os.path.exists(wav_file):
-            os.remove(wav_file)
+        # Subir a Cloud Storage
+        cloud_filename = f"audio/audio_{timestamp}.mp3"
+        cloud_url = upload_to_cloud_storage(mp3_file, cloud_filename)
 
-        print(f"   [AUDIO] Guardado: {mp3_file}")
-        return mp3_file
+        # Limpiar archivos temporales
+        for temp_file in [wav_file, mp3_file]:
+            if os.path.exists(temp_file):
+                os.remove(temp_file)
+
+        print(f"   [AUDIO] Guardado en Cloud: {cloud_url}")
+        return cloud_url
 
     except Exception as e:
         print(f"   [ERROR AUDIO] {e}")

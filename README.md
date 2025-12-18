@@ -44,52 +44,44 @@ Sistema de monitoreo IoT que recibe alertas de sensores Arduino y captura multim
    python server.py
    ```
 
-## 🌐 Despliegue en Heroku
+## 🌐 Despliegue en Google App Engine
 
 ### Prerrequisitos
-- Cuenta de Heroku vinculada a `christianyunho@gmail.com`
-- [Heroku CLI](https://devcenter.heroku.com/articles/heroku-cli) instalado
-- Git inicializado
+- Cuenta de Google Cloud vinculada a `christianyunho@gmail.com`
+- [Google Cloud SDK](https://cloud.google.com/sdk/docs/install) instalado
+- Proyecto `project-iot` creado en Google Cloud Console
 
 ### Pasos de despliegue
 
-1. **Inicializar Git** (si no existe):
+1. **Autenticarse con la cuenta correcta**:
    ```bash
-   git init
-   git add .
-   git commit -m "Initial commit"
+   gcloud auth login christianyunho@gmail.com
+   gcloud config set project project-iot
    ```
 
-2. **Crear app en Heroku**:
+2. **Verificar configuración**:
    ```bash
-   heroku login
-   heroku create tu-app-iot-fuego
+   gcloud config list
    ```
 
-3. **Configurar variables de entorno en Heroku**:
+3. **Configurar variables de entorno en app.yaml**:
+   Edita `app.yaml` y cambia `PHONE_IP` por tu IP real del celular.
+
+4. **Desplegar en App Engine**:
    ```bash
-   heroku config:set PHONE_IP=http://TU_IP_CELULAR:8080
-   heroku config:set CAPTURE_VIDEO=True
-   heroku config:set CAPTURE_AUDIO=True
-   heroku config:set DURATION=5
+   gcloud app deploy
    ```
 
-4. **Agregar buildpack de FFmpeg**:
+5. **Abrir la aplicación**:
    ```bash
-   heroku buildpacks:add --index 1 https://github.com/jonathanong/heroku-buildpack-ffmpeg
-   heroku buildpacks:add --index 2 heroku/python
-   ```
-
-5. **Desplegar**:
-   ```bash
-   git push heroku main
+   gcloud app browse
    ```
 
 ## 📱 Configuración del Arduino
 
 Tu Arduino debe enviar datos JSON a:
 ```
-https://tu-app-iot-fuego.herokuapp.com/alert
+https://project-iot-481620.ue.r.appspot.com/alert
 ```
 
 Formato esperado:
@@ -105,21 +97,29 @@ Formato esperado:
 
 ```
 api-iot/
-├── server.py           # Servidor Flask principal
+├── server.py           # Servidor Flask principal (con Cloud Storage)
+├── main.py            # Punto de entrada App Engine
 ├── requirements.txt    # Dependencias Python
-├── Procfile           # Configuración Heroku
-├── runtime.txt        # Versión Python
+├── app.yaml           # Configuración App Engine
 ├── .env              # Variables locales
 ├── .gitignore        # Archivos ignorados
 └── README.md         # Este archivo
 ```
 
-## 🎥 Funcionalidades Multimedia
+### ☁️ **Estructura en Cloud Storage**
+```
+gs://iot-captures-481620/
+├── photos/           # Fotos capturadas
+├── videos/           # Videos convertidos a MP4
+└── audio/            # Audio convertido a MP3
+```
 
-- **Fotos**: Captura automática desde `/photo.jpg`
-- **Videos**: Stream MJPEG convertido a MP4
-- **Audio**: Grabación WAV convertida a MP3
-- **Almacenamiento**: Carpeta `captures/` (ignorada en Git)
+## ☁️ **Almacenamiento en la Nube**
+
+- **Google Cloud Storage**: Todas las capturas (fotos, videos, audio) se almacenan automáticamente en Cloud Storage
+- **URLs públicas**: Los archivos son accesibles públicamente para visualización inmediata
+- **Organización**: Archivos organizados en carpetas `photos/`, `videos/`, `audio/`
+- **Persistencia**: Los archivos permanecen disponibles incluso si el contenedor se reinicia
 
 ## 🔧 Variables de Entorno
 
@@ -129,6 +129,7 @@ api-iot/
 | `CAPTURE_VIDEO` | Habilitar captura de video | `True` |
 | `CAPTURE_AUDIO` | Habilitar captura de audio | `True` |
 | `DURATION` | Duración de grabaciones (seg) | `5` |
+| `BUCKET_NAME` | Nombre del bucket de Cloud Storage | `iot-captures-481620` |
 | `PORT` | Puerto del servidor | `5000` |
 | `FLASK_ENV` | Entorno Flask | `production` |
 

@@ -1,0 +1,21 @@
+runtime: python311
+
+# Variables de entorno para App Engine
+env_variables:
+  PHONE_IP: "http://192.168.1.100:8080"  # Cambiar por tu IP real
+  CAPTURE_VIDEO: "True"
+  CAPTURE_AUDIO: "True"
+  DURATION: "5"
+  BUCKET_NAME: "iot-captures-481620"
+  FLASK_ENV: "production"
+
+# Configuración de recursos
+automatic_scaling:
+  min_instances: 0
+  max_instances: 10
+  target_cpu_utilization: 0.6
+
+# Manejo de archivos estáticos (opcional)
+handlers:
+- url: /.*
+  script: auto
