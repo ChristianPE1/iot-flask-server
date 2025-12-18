@@ -87,9 +87,20 @@
             📴 Desconectado del servidor
         </div>
 
+        <div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; margin: 10px 0;">
+            <h3 style="margin-top: 0;">📊 Información del Sistema</h3>
+            <div id="systemInfo" style="font-size: 14px;">
+                <p>🌐 Estado: Iniciando...</p>
+                <p>📱 Permisos: Verificando...</p>
+                <p>🔍 Última verificación: Nunca</p>
+                <p>🚨 Alertas detectadas: 0</p>
+            </div>
+        </div>
+
         <div class="camera-container">
             <button id="startCamera" class="btn">📷 Iniciar Cámara</button>
             <button id="stopCamera" class="btn hidden">🛑 Detener Cámara</button>
+            <button id="testNotification" class="btn" style="background: #FF9800;">🔔 Probar Notificación</button>
             <br>
             <video id="video" class="hidden" autoplay playsinline></video>
             <canvas id="canvas" class="hidden"></canvas>
@@ -108,10 +119,13 @@
                 this.canvas = document.getElementById('canvas');
                 this.statusDiv = document.getElementById('status');
                 this.logDiv = document.getElementById('log');
+                this.systemInfoDiv = document.getElementById('systemInfo');
                 this.mediaStream = null;
                 this.isMonitoring = false;
                 this.mediaRecorder = null;
                 this.audioRecorder = null;
+                this.lastProcessedAlert = null;
+                this.alertsDetected = 0;
                 
                 this.init();
             }
@@ -125,6 +139,7 @@
             setupEventListeners() {
                 document.getElementById('startCamera').onclick = () => this.startCamera();
                 document.getElementById('stopCamera').onclick = () => this.stopCamera();
+                document.getElementById('testNotification').onclick = () => this.testNotification();
                 
                 // Registrar Service Worker para notificaciones push
                 if ('serviceWorker' in navigator && 'PushManager' in window) {
@@ -143,8 +158,27 @@
                     const permission = await Notification.requestPermission();
                     if (permission === 'granted') {
                         this.log('✅ Permisos de notificación concedidos');
+                        // Mostrar notificación de bienvenida
+                        this.showNotification('✅ Sistema listo. Recibirás alertas de fuego aquí.');
+                    } else {
+                        this.log('⚠️ Permisos de notificación denegados');
                     }
                 }
+            }
+
+            testNotification() {
+                this.log('🔔 Probando notificación...');
+                this.showNotification('🔥 ¡PRUEBA! Esta es una alerta de fuego simulada');
+                
+                // Vibrar si está disponible
+                if (navigator.vibrate) {
+                    navigator.vibrate([200, 100, 200]);
+                }
+                
+                this.updateStatus('🔔 Prueba de notificación enviada', 'alert');
+                setTimeout(() => {
+                    this.updateStatus('🔗 Conectado al servidor IoT - Monitoreando...', 'online');
+                }, 3000);
             }
 
             async startCamera() {
@@ -204,41 +238,79 @@
                         const alertsResponse = await fetch(`${this.serverUrl}/alertas`);
                         const alertsData = await alertsResponse.json();
                         
+                        // Actualizar info del sistema
+                        this.updateSystemInfo(alertsData);
+                        
                         if (alertsData.alertas && alertsData.alertas.length > 0) {
                             const lastAlert = alertsData.alertas[alertsData.alertas.length - 1];
-                            const alertTime = new Date(lastAlert.timestamp);
-                            const now = new Date();
                             
-                            // Si la alerta fue en los últimos 30 segundos
-                            if (now - alertTime < 30000 && lastAlert.estado === 'alert') {
-                                this.handleFireAlert(lastAlert);
+                            // Verificar si es una alerta nueva que no hemos procesado
+                            if (lastAlert.estado === 'alert' && !this.lastProcessedAlert) {
+                                this.lastProcessedAlert = lastAlert.timestamp;
+                                this.alertsDetected++;
+                                this.log(`🚨 ¡Nueva alerta detectada! Timestamp: ${lastAlert.timestamp}`);
+                                await this.handleFireAlert(lastAlert);
+                            } else if (lastAlert.estado === 'alert' && this.lastProcessedAlert !== lastAlert.timestamp) {
+                                // Es una alerta diferente a la última procesada
+                                this.lastProcessedAlert = lastAlert.timestamp;
+                                this.alertsDetected++;
+                                this.log(`🚨 ¡Nueva alerta detectada! Timestamp: ${lastAlert.timestamp}`);
+                                await this.handleFireAlert(lastAlert);
                             }
                         }
                         
-                        this.updateStatus('🔗 Conectado al servidor IoT', 'online');
+                        this.updateStatus('🔗 Conectado al servidor IoT - Monitoreando...', 'online');
                     }
                 } catch (error) {
                     this.updateStatus('❌ Error de conexión', 'offline');
                     this.log(`🔴 Error: ${error.message}`);
                 }
 
-                // Revisar cada 5 segundos
-                setTimeout(() => this.checkForAlerts(), 5000);
+                // Revisar cada 2 segundos (más frecuente)
+                setTimeout(() => this.checkForAlerts(), 2000);
+            }
+
+            updateSystemInfo(alertsData) {
+                const now = new Date().toLocaleTimeString();
+                const hasNotifications = Notification.permission === 'granted';
+                const hasCamera = this.mediaStream !== null;
+                
+                this.systemInfoDiv.innerHTML = `
+                    <p>🌐 Estado: Conectado y monitoreando</p>
+                    <p>📱 Permisos de notificación: ${hasNotifications ? '✅ Concedidos' : '❌ Denegados'}</p>
+                    <p>📷 Cámara: ${hasCamera ? '✅ Activa' : '⚠️ Inactiva'}</p>
+                    <p>🔍 Última verificación: ${now}</p>
+                    <p>🚨 Alertas detectadas: ${this.alertsDetected}</p>
+                    <p>📊 Total alertas en servidor: ${alertsData.total}</p>
+                `;
             }
 
             async handleFireAlert(alertData) {
                 this.updateStatus('🚨 ¡ALERTA DE FUEGO DETECTADA!', 'alert');
+                
+                // Vibrar el dispositivo si está disponible
+                if (navigator.vibrate) {
+                    navigator.vibrate([200, 100, 200, 100, 200]);
+                }
+                
+                // Notificación del navegador
                 this.showNotification('🔥 ¡FUEGO DETECTADO! Capturando evidencia...');
+                
                 this.log(`🔥 ALERTA: Temp: ${alertData.temperatura}°C, Luz: ${alertData.luz}`);
 
                 // Auto-activar cámara si no está activa
                 if (!this.mediaStream) {
+                    this.log('📷 Activando cámara automáticamente...');
                     await this.startCamera();
                     await this.sleep(2000); // Esperar 2 segundos para estabilizar
                 }
 
                 if (this.mediaStream) {
+                    this.log('🎬 Iniciando captura de evidencia...');
                     await this.captureEvidence();
+                } else {
+                    this.log('❌ No se pudo activar la cámara');
+                    this.showNotification('❌ Error: No se pudo activar la cámara');
                 }
             }
 
@@ -391,21 +463,31 @@
             showNotification(message) {
                 // Notificación del navegador
                 if (Notification.permission === 'granted') {
-                    new Notification('🔥 Sistema IoT', {
+                    const notification = new Notification('🔥 Sistema IoT - Alerta', {
                         body: message,
-                        icon: '/icon.png',
-                        badge: '/badge.png'
+                        icon: 'https://img.icons8.com/color/96/000000/fire-element--v1.png',
+                        badge: 'https://img.icons8.com/color/48/000000/fire-element--v1.png',
+                        vibrate: [200, 100, 200, 100, 200],
+                        requireInteraction: true, // Requiere que el usuario interactúe
+                        tag: 'fire-alert' // Para reemplazar notificaciones antiguas
                     });
+                    
+                    notification.onclick = function() {
+                        window.focus();
+                        notification.close();
+                    };
+                } else {
+                    this.log('⚠️ Permisos de notificación no concedidos');
                 }
 
-                // Notificación visual
-                const notification = document.createElement('div');
-                notification.className = 'notification';
-                notification.textContent = message;
-                document.body.appendChild(notification);
+                // Notificación visual en pantalla
+                const visualNotification = document.createElement('div');
+                visualNotification.className = 'notification';
+                visualNotification.textContent = message;
+                document.body.appendChild(visualNotification);
 
                 setTimeout(() => {
-                    notification.remove();
+                    visualNotification.remove();
                 }, 5000);
             }
 
