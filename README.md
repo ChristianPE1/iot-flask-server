@@ -106,12 +106,23 @@ api-iot/
 └── README.md         # Este archivo
 ```
 
-### ☁️ **Estructura en Cloud Storage**
+### ☁️ **Acceso a Archivos en Cloud Storage**
+
+Los archivos capturados están disponibles públicamente en:
 ```
-gs://iot-captures-481620/
-├── photos/           # Fotos capturadas
-├── videos/           # Videos convertidos a MP4
-└── audio/            # Audio convertido a MP3
+https://storage.googleapis.com/iot-captures-481620/
+```
+
+Ejemplos de URLs:
+- Fotos: `https://storage.googleapis.com/iot-captures-481620/photos/photo_20251218_170000.jpg`
+- Videos: `https://storage.googleapis.com/iot-captures-481620/videos/video_20251218_170000.mp4`
+- Audio: `https://storage.googleapis.com/iot-captures-481620/audio/audio_20251218_170000.mp3`
+
+### 📊 **Monitoreo del Bucket**
+
+Para ver los archivos almacenados:
+```bash
+gsutil ls gs://iot-captures-481620/**
 ```
 
 ## ☁️ **Almacenamiento en la Nube**
