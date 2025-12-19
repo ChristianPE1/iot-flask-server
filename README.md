@@ -369,13 +369,6 @@ curl -X POST https://tu-app.appspot.com/api/test-alert
 
 **Sin esto, el sistema no podrá capturar multimedia automáticamente.**
 
-## Contribución
-
-1. Fork el proyecto
-2. Crear rama para feature (`git checkout -b feature/nueva-funcionalidad`)
-3. Commit cambios (`git commit -am 'Agrega nueva funcionalidad'`)
-4. Push a la rama (`git push origin feature/nueva-funcionalidad`)
-5. Crear Pull Request
 
 ## Licencia
 
