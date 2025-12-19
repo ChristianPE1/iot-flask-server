@@ -3,765 +3,166 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>📷 Cámara IoT - Captura Manual</title>
+    <title>Camara - IoT</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', system-ui, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-            min-height: 100vh;
-            color: white;
-            padding: 20px;
-        }
-
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-        }
-
-        h1 {
-            text-align: center;
-            margin-bottom: 20px;
-            font-size: 24px;
-        }
-
-        .status-card {
-            background: rgba(255,255,255,0.1);
-            border-radius: 15px;
-            padding: 20px;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-
-        .status-indicator {
-            display: inline-block;
-            width: 15px;
-            height: 15px;
-            border-radius: 50%;
-            margin-right: 10px;
-            animation: pulse 2s infinite;
-        }
-
-        .status-idle { background: #888; animation: none; }
-        .status-recording { background: #f44336; }
-        .status-uploading { background: #ff9800; }
-        .status-analyzing { background: #2196f3; }
-        .status-complete { background: #4caf50; }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-
-        /* Video Preview */
-        .video-container {
-            background: #000;
-            border-radius: 15px;
-            overflow: hidden;
-            margin-bottom: 20px;
-            position: relative;
-        }
-
-        #videoPreview {
-            width: 100%;
-            display: block;
-            max-height: 400px;
-            object-fit: cover;
-        }
-
-        .recording-badge {
-            position: absolute;
-            top: 15px;
-            left: 15px;
-            background: #f44336;
-            color: white;
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-weight: bold;
-            display: none;
-        }
-
-        .recording-badge.active {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .rec-dot {
-            width: 10px;
-            height: 10px;
-            background: white;
-            border-radius: 50%;
-            animation: blink 1s infinite;
-        }
-
-        @keyframes blink {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0; }
-        }
-
-        /* Control Buttons */
-        .controls {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-
-        .btn {
-            flex: 1;
-            padding: 15px 20px;
-            border: none;
-            border-radius: 12px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
-
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .btn-start {
-            background: linear-gradient(135deg, #4caf50, #45a049);
-            color: white;
-        }
-
-        .btn-start:hover:not(:disabled) {
-            transform: scale(1.02);
-            box-shadow: 0 5px 20px rgba(76, 175, 80, 0.4);
-        }
-
-        .btn-stop {
-            background: linear-gradient(135deg, #f44336, #d32f2f);
-            color: white;
-        }
-
-        .btn-stop:hover:not(:disabled) {
-            transform: scale(1.02);
-            box-shadow: 0 5px 20px rgba(244, 67, 54, 0.4);
-        }
-
-        /* Capture Options */
-        .capture-options {
-            background: rgba(255,255,255,0.1);
-            border-radius: 15px;
-            padding: 20px;
-            margin-bottom: 20px;
-        }
-
-        .capture-options h3 {
-            margin-bottom: 15px;
-            font-size: 16px;
-        }
-
-        .option-row {
-            display: flex;
-            align-items: center;
-            padding: 10px 0;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-        }
-
-        .option-row:last-child {
-            border-bottom: none;
-        }
-
-        .option-row label {
-            flex: 1;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .option-row input[type="checkbox"] {
-            width: 20px;
-            height: 20px;
-            accent-color: #4caf50;
-        }
-
-        /* Progress Section */
-        .progress-section {
-            background: rgba(255,255,255,0.1);
-            border-radius: 15px;
-            padding: 20px;
-            margin-bottom: 20px;
-            display: none;
-        }
-
-        .progress-section.active {
-            display: block;
-        }
-
-        .progress-item {
-            display: flex;
-            align-items: center;
-            padding: 10px 0;
-            gap: 10px;
-        }
-
-        .progress-icon {
-            width: 30px;
-            text-align: center;
-            font-size: 20px;
-        }
-
-        .progress-text {
-            flex: 1;
-        }
-
-        .progress-status {
-            font-size: 20px;
-        }
-
-        /* Results Section */
-        .results-section {
-            background: rgba(255,255,255,0.1);
-            border-radius: 15px;
-            padding: 20px;
-            display: none;
-        }
-
-        .results-section.active {
-            display: block;
-        }
-
-        .result-item {
-            background: rgba(255,255,255,0.1);
-            border-radius: 10px;
-            padding: 15px;
-            margin-bottom: 10px;
-        }
-
-        .result-item h4 {
-            margin-bottom: 8px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .result-item a {
-            color: #64b5f6;
-            word-break: break-all;
-            font-size: 12px;
-        }
-
-        /* Analysis Result */
-        .analysis-result {
-            margin-top: 20px;
-            padding: 20px;
-            border-radius: 15px;
-            text-align: center;
-        }
-
-        .analysis-result.fire {
-            background: linear-gradient(135deg, #ff5252, #d32f2f);
-        }
-
-        .analysis-result.no-fire {
-            background: linear-gradient(135deg, #4caf50, #388e3c);
-        }
-
-        .analysis-result h2 {
-            font-size: 28px;
-            margin-bottom: 10px;
-        }
-
-        .confidence-bar {
-            background: rgba(0,0,0,0.3);
-            height: 20px;
-            border-radius: 10px;
-            overflow: hidden;
-            margin: 15px 0;
-        }
-
-        .confidence-fill {
-            height: 100%;
-            background: white;
-            border-radius: 10px;
-            transition: width 1s ease;
-        }
-
-        /* Links */
-        .links {
-            text-align: center;
-            margin-top: 20px;
-        }
-
-        .links a {
-            color: #64b5f6;
-            text-decoration: none;
-            margin: 0 10px;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0a0a0a; color: #fff; min-height: 100vh; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid #1a1a1a; }
+        h1 { font-size: 18px; font-weight: 500; }
+        .back-link { color: #666; text-decoration: none; font-size: 14px; }
+        .back-link:hover { color: #fff; }
+        .video-box { background: #111; border-radius: 12px; overflow: hidden; margin-bottom: 20px; position: relative; aspect-ratio: 16/9; }
+        #videoPreview { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .rec-badge { position: absolute; top: 16px; left: 16px; display: none; align-items: center; gap: 8px; background: rgba(0,0,0,0.6); padding: 8px 14px; border-radius: 6px; font-size: 12px; }
+        .rec-badge.on { display: flex; }
+        .rec-dot { width: 8px; height: 8px; background: #ef4444; border-radius: 50%; animation: blink 1s infinite; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 30px; }
+        .btn { padding: 16px; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn-start { background: #fff; color: #000; }
+        .btn-start:hover:not(:disabled) { background: #e5e5e5; }
+        .btn-stop { background: #dc2626; color: #fff; }
+        .btn-stop:hover:not(:disabled) { background: #b91c1c; }
+        .card { background: #111; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+        .card h3 { font-size: 13px; font-weight: 500; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; }
+        .row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #1a1a1a; font-size: 14px; }
+        .row:last-child { border-bottom: none; }
+        input[type="checkbox"] { width: 18px; height: 18px; accent-color: #fff; }
+        .hide { display: none; }
+        .show { display: block; }
+        .tag { font-size: 12px; padding: 4px 10px; border-radius: 4px; background: #1a1a1a; }
+        .tag.ok { background: #166534; color: #22c55e; }
+        .tag.err { background: #7f1d1d; color: #ef4444; }
+        .tag.load { background: #1e3a5f; color: #3b82f6; }
+        .link { display: block; padding: 12px; background: #1a1a1a; border-radius: 6px; margin-bottom: 8px; color: #3b82f6; text-decoration: none; font-size: 13px; word-break: break-all; }
+        .link:hover { background: #222; }
+        .result { margin-top: 20px; padding: 20px; border-radius: 12px; text-align: center; }
+        .result.fire { background: #7f1d1d; border: 1px solid #dc2626; }
+        .result.safe { background: #14532d; border: 1px solid #22c55e; }
+        .result h4 { font-size: 16px; font-weight: 500; margin-bottom: 8px; }
+        .result p { font-size: 13px; color: #999; }
+        .bar { margin-top: 16px; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; }
+        .bar-fill { height: 100%; background: #fff; border-radius: 2px; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>📷 Cámara IoT - Captura Manual</h1>
-
-        <!-- Status Card -->
-        <div class="status-card">
-            <span class="status-indicator status-idle" id="statusIndicator"></span>
-            <span id="statusText">Listo para capturar</span>
-        </div>
-
-        <!-- Video Preview -->
-        <div class="video-container">
+        <header>
+            <h1>Captura de Camara</h1>
+            <a href="/dashboard" class="back-link">Dashboard</a>
+        </header>
+        <div class="video-box">
             <video id="videoPreview" autoplay playsinline muted></video>
-            <div class="recording-badge" id="recordingBadge">
-                <span class="rec-dot"></span>
-                <span>GRABANDO</span>
-            </div>
+            <div class="rec-badge" id="recBadge"><span class="rec-dot"></span><span>REC</span></div>
         </div>
-
-        <!-- Control Buttons -->
         <div class="controls">
-            <button class="btn btn-start" id="btnStart" onclick="iniciarCaptura()">
-                ▶️ Iniciar Cámara
-            </button>
-            <button class="btn btn-stop" id="btnStop" onclick="detenerCaptura()" disabled>
-                ⏹️ Detener y Subir
-            </button>
+            <button class="btn btn-start" id="btnStart" onclick="startCam()">Iniciar Camara</button>
+            <button class="btn btn-stop" id="btnStop" onclick="stopCam()" disabled>Detener y Subir</button>
         </div>
-
-        <!-- Capture Options -->
-        <div class="capture-options">
-            <h3>⚙️ Opciones de Captura</h3>
-            <div class="option-row">
-                <label>
-                    <input type="checkbox" id="capturePhoto" checked>
-                    📷 Capturar Foto
-                </label>
-            </div>
-            <div class="option-row">
-                <label>
-                    <input type="checkbox" id="captureVideo" checked>
-                    🎥 Grabar Video
-                </label>
-            </div>
-            <div class="option-row">
-                <label>
-                    <input type="checkbox" id="captureAudio" checked>
-                    🎤 Grabar Audio
-                </label>
-            </div>
+        <div class="card">
+            <h3>Opciones</h3>
+            <div class="row"><label>Foto</label><input type="checkbox" id="optPhoto" checked></div>
+            <div class="row"><label>Video</label><input type="checkbox" id="optVideo" checked></div>
+            <div class="row"><label>Audio</label><input type="checkbox" id="optAudio" checked></div>
         </div>
-
-        <!-- Progress Section -->
-        <div class="progress-section" id="progressSection">
-            <h3>📤 Subiendo archivos...</h3>
-            <div class="progress-item" id="progressPhoto">
-                <span class="progress-icon">📷</span>
-                <span class="progress-text">Foto</span>
-                <span class="progress-status">⏳</span>
-            </div>
-            <div class="progress-item" id="progressVideo">
-                <span class="progress-icon">🎥</span>
-                <span class="progress-text">Video</span>
-                <span class="progress-status">⏳</span>
-            </div>
-            <div class="progress-item" id="progressAudio">
-                <span class="progress-icon">🎤</span>
-                <span class="progress-text">Audio</span>
-                <span class="progress-status">⏳</span>
-            </div>
-            <div class="progress-item" id="progressAnalysis">
-                <span class="progress-icon">🤖</span>
-                <span class="progress-text">Análisis Vertex AI</span>
-                <span class="progress-status">⏳</span>
-            </div>
+        <div class="card hide" id="progCard">
+            <h3>Progreso</h3>
+            <div class="row" id="pPhoto"><span>Foto</span><span class="tag" id="tPhoto">-</span></div>
+            <div class="row" id="pVideo"><span>Video</span><span class="tag" id="tVideo">-</span></div>
+            <div class="row" id="pAudio"><span>Audio</span><span class="tag" id="tAudio">-</span></div>
+            <div class="row"><span>Analisis IA</span><span class="tag" id="tAI">-</span></div>
         </div>
-
-        <!-- Results Section -->
-        <div class="results-section" id="resultsSection">
-            <h3>📁 Archivos Capturados</h3>
-            <div id="fileResults"></div>
-            
-            <div class="analysis-result" id="analysisResult">
-                <h2 id="analysisTitle">Analizando...</h2>
-                <p id="analysisDescription"></p>
-                <div class="confidence-bar">
-                    <div class="confidence-fill" id="confidenceFill" style="width: 0%"></div>
-                </div>
-                <p id="confidenceText"></p>
-            </div>
-        </div>
-
-        <!-- Links -->
-        <div class="links">
-            <a href="/dashboard">📊 Ver Dashboard</a>
-            <a href="/">🏠 Inicio</a>
+        <div class="card hide" id="resCard">
+            <h3>Resultados</h3>
+            <div id="links"></div>
+            <div class="result" id="resBox"></div>
         </div>
     </div>
-
     <script>
-        let videoStream = null;
-        let mediaRecorder = null;
-        let audioRecorder = null;
-        let videoChunks = [];
-        let audioChunks = [];
-        let isRecording = false;
+        let stream=null, mRec=null, aRec=null, vChunks=[], aChunks=[];
+        let photoB=null, videoB=null, audioB=null;
 
-        // Captured files
-        let capturedPhoto = null;
-        let capturedVideo = null;
-        let capturedAudio = null;
-
-        async function iniciarCaptura() {
+        async function startCam() {
             try {
-                // Request camera and microphone access
-                const constraints = {
-                    video: { 
-                        facingMode: 'environment',
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
-                    },
-                    audio: true
-                };
-
-                videoStream = await navigator.mediaDevices.getUserMedia(constraints);
-                
-                const videoPreview = document.getElementById('videoPreview');
-                videoPreview.srcObject = videoStream;
-
-                // Start video recording
-                if (document.getElementById('captureVideo').checked) {
-                    const videoTrack = videoStream.getVideoTracks()[0];
-                    const audioTrack = videoStream.getAudioTracks()[0];
-                    
-                    const recordStream = new MediaStream([videoTrack, audioTrack]);
-                    mediaRecorder = new MediaRecorder(recordStream, { mimeType: 'video/webm' });
-                    
-                    mediaRecorder.ondataavailable = (e) => {
-                        if (e.data.size > 0) videoChunks.push(e.data);
-                    };
-                    
-                    mediaRecorder.start();
+                stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1280},height:{ideal:720}},audio:true});
+                document.getElementById('videoPreview').srcObject = stream;
+                if(document.getElementById('optVideo').checked){
+                    const vT=stream.getVideoTracks()[0], aT=stream.getAudioTracks()[0];
+                    const rs=new MediaStream([vT,aT]);
+                    mRec=new MediaRecorder(rs,{mimeType:'video/webm'});
+                    mRec.ondataavailable=e=>{if(e.data.size>0)vChunks.push(e.data);};
+                    mRec.start();
                 }
-
-                // Start audio-only recording
-                if (document.getElementById('captureAudio').checked) {
-                    const audioTrack = videoStream.getAudioTracks()[0];
-                    if (audioTrack) {
-                        const audioStream = new MediaStream([audioTrack]);
-                        audioRecorder = new MediaRecorder(audioStream, { mimeType: 'audio/webm' });
-                        
-                        audioRecorder.ondataavailable = (e) => {
-                            if (e.data.size > 0) audioChunks.push(e.data);
-                        };
-                        
-                        audioRecorder.start();
-                    }
+                if(document.getElementById('optAudio').checked){
+                    const aT=stream.getAudioTracks()[0];
+                    if(aT){const as=new MediaStream([aT]);aRec=new MediaRecorder(as,{mimeType:'audio/webm'});aRec.ondataavailable=e=>{if(e.data.size>0)aChunks.push(e.data);};aRec.start();}
                 }
-
-                isRecording = true;
-                updateUI('recording');
-
-            } catch (error) {
-                console.error('Error accessing camera:', error);
-                alert('Error al acceder a la cámara: ' + error.message);
-            }
+                document.getElementById('btnStart').disabled=true;
+                document.getElementById('btnStop').disabled=false;
+                document.getElementById('recBadge').classList.add('on');
+            } catch(e){alert('Error: '+e.message);}
         }
 
-        async function detenerCaptura() {
-            if (!isRecording) return;
-
-            updateUI('uploading');
-
-            // Capture photo from video stream
-            if (document.getElementById('capturePhoto').checked && videoStream) {
-                const video = document.getElementById('videoPreview');
-                const canvas = document.createElement('canvas');
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                canvas.getContext('2d').drawImage(video, 0, 0);
-                
-                capturedPhoto = await new Promise(resolve => {
-                    canvas.toBlob(resolve, 'image/jpeg', 0.9);
-                });
+        async function stopCam() {
+            document.getElementById('progCard').classList.remove('hide');
+            document.getElementById('resCard').classList.add('hide');
+            if(document.getElementById('optPhoto').checked&&stream){
+                const v=document.getElementById('videoPreview'),c=document.createElement('canvas');
+                c.width=v.videoWidth;c.height=v.videoHeight;c.getContext('2d').drawImage(v,0,0);
+                photoB=await new Promise(r=>c.toBlob(r,'image/jpeg',0.9));
             }
-
-            // Stop video recording
-            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-                mediaRecorder.stop();
-                await new Promise(resolve => {
-                    mediaRecorder.onstop = resolve;
-                });
-                capturedVideo = new Blob(videoChunks, { type: 'video/webm' });
-            }
-
-            // Stop audio recording
-            if (audioRecorder && audioRecorder.state !== 'inactive') {
-                audioRecorder.stop();
-                await new Promise(resolve => {
-                    audioRecorder.onstop = resolve;
-                });
-                capturedAudio = new Blob(audioChunks, { type: 'audio/webm' });
-            }
-
-            // Stop video stream
-            if (videoStream) {
-                videoStream.getTracks().forEach(track => track.stop());
-            }
-
-            isRecording = false;
-
-            // Upload files to Cloud Storage
-            await uploadFiles();
+            if(mRec&&mRec.state!=='inactive'){mRec.stop();await new Promise(r=>{mRec.onstop=r;});videoB=new Blob(vChunks,{type:'video/webm'});}
+            if(aRec&&aRec.state!=='inactive'){aRec.stop();await new Promise(r=>{aRec.onstop=r;});audioB=new Blob(aChunks,{type:'audio/webm'});}
+            if(stream)stream.getTracks().forEach(t=>t.stop());
+            document.getElementById('btnStart').disabled=false;
+            document.getElementById('btnStop').disabled=true;
+            document.getElementById('recBadge').classList.remove('on');
+            await upload();
         }
 
-        async function uploadFiles() {
-            const results = {
-                photo_url: null,
-                video_url: null,
-                audio_url: null
-            };
-
-            document.getElementById('progressSection').classList.add('active');
-
-            // Upload photo
-            if (capturedPhoto) {
-                updateProgress('progressPhoto', 'uploading');
-                try {
-                    const formData = new FormData();
-                    formData.append('photo', capturedPhoto, 'capture.jpg');
-                    
-                    const response = await fetch('/upload/photo', {
-                        method: 'POST',
-                        body: formData
-                    });
-                    
-                    const data = await response.json();
-                    if (data.url) {
-                        results.photo_url = data.url;
-                        updateProgress('progressPhoto', 'success');
-                    } else {
-                        updateProgress('progressPhoto', 'error');
-                    }
-                } catch (error) {
-                    console.error('Error uploading photo:', error);
-                    updateProgress('progressPhoto', 'error');
-                }
-            } else {
-                document.getElementById('progressPhoto').style.display = 'none';
-            }
-
-            // Upload video
-            if (capturedVideo) {
-                updateProgress('progressVideo', 'uploading');
-                try {
-                    const formData = new FormData();
-                    formData.append('video', capturedVideo, 'capture.webm');
-                    
-                    const response = await fetch('/upload/video', {
-                        method: 'POST',
-                        body: formData
-                    });
-                    
-                    const data = await response.json();
-                    if (data.url) {
-                        results.video_url = data.url;
-                        updateProgress('progressVideo', 'success');
-                    } else {
-                        updateProgress('progressVideo', 'error');
-                    }
-                } catch (error) {
-                    console.error('Error uploading video:', error);
-                    updateProgress('progressVideo', 'error');
-                }
-            } else {
-                document.getElementById('progressVideo').style.display = 'none';
-            }
-
-            // Upload audio
-            if (capturedAudio) {
-                updateProgress('progressAudio', 'uploading');
-                try {
-                    const formData = new FormData();
-                    formData.append('audio', capturedAudio, 'capture.webm');
-                    
-                    const response = await fetch('/upload/audio', {
-                        method: 'POST',
-                        body: formData
-                    });
-                    
-                    const data = await response.json();
-                    if (data.url) {
-                        results.audio_url = data.url;
-                        updateProgress('progressAudio', 'success');
-                    } else {
-                        updateProgress('progressAudio', 'error');
-                    }
-                } catch (error) {
-                    console.error('Error uploading audio:', error);
-                    updateProgress('progressAudio', 'error');
-                }
-            } else {
-                document.getElementById('progressAudio').style.display = 'none';
-            }
-
-            // Analyze with Vertex AI
-            updateProgress('progressAnalysis', 'uploading');
-            updateUI('analyzing');
-
-            try {
-                const response = await fetch('/analyze', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(results)
-                });
-
-                const analysisData = await response.json();
-                updateProgress('progressAnalysis', 'success');
-                
-                showResults(results, analysisData);
-
-            } catch (error) {
-                console.error('Error analyzing:', error);
-                updateProgress('progressAnalysis', 'error');
-                showResults(results, null);
-            }
-
-            updateUI('complete');
-            resetCapture();
+        async function upload() {
+            const r={photo_url:null,photo_gcs_uri:null,video_url:null,video_gcs_uri:null,audio_url:null};
+            if(photoB){
+                setT('tPhoto','load','Subiendo');
+                try{const fd=new FormData();fd.append('photo',photoB,'c.jpg');const res=await fetch('/upload/photo',{method:'POST',body:fd});const d=await res.json();
+                if(d.success){r.photo_url=d.url;r.photo_gcs_uri=d.gcs_uri;setT('tPhoto','ok','OK');}else{setT('tPhoto','err','Error');}}
+                catch(e){setT('tPhoto','err','Error');}
+            }else{document.getElementById('pPhoto').style.display='none';}
+            if(videoB){
+                setT('tVideo','load','Subiendo');
+                try{const fd=new FormData();fd.append('video',videoB,'c.webm');const res=await fetch('/upload/video',{method:'POST',body:fd});const d=await res.json();
+                if(d.success){r.video_url=d.url;r.video_gcs_uri=d.gcs_uri;setT('tVideo','ok','OK');}else{setT('tVideo','err','Error');}}
+                catch(e){setT('tVideo','err','Error');}
+            }else{document.getElementById('pVideo').style.display='none';}
+            if(audioB){
+                setT('tAudio','load','Subiendo');
+                try{const fd=new FormData();fd.append('audio',audioB,'c.webm');const res=await fetch('/upload/audio',{method:'POST',body:fd});const d=await res.json();
+                if(d.success){r.audio_url=d.url;setT('tAudio','ok','OK');}else{setT('tAudio','err','Error');}}
+                catch(e){setT('tAudio','err','Error');}
+            }else{document.getElementById('pAudio').style.display='none';}
+            setT('tAI','load','Analizando');
+            try{const res=await fetch('/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(r)});const d=await res.json();setT('tAI','ok','OK');showRes(r,d);}
+            catch(e){setT('tAI','err','Error');showRes(r,null);}
+            vChunks=[];aChunks=[];photoB=null;videoB=null;audioB=null;stream=null;mRec=null;aRec=null;
         }
 
-        function showResults(files, analysis) {
-            const resultsSection = document.getElementById('resultsSection');
-            const fileResults = document.getElementById('fileResults');
-            const analysisResult = document.getElementById('analysisResult');
-            
-            resultsSection.classList.add('active');
+        function setT(id,c,t){const e=document.getElementById(id);e.className='tag '+c;e.textContent=t;}
 
-            // Show file links
-            let filesHtml = '';
-            if (files.photo_url) {
-                filesHtml += `
-                    <div class="result-item">
-                        <h4>📷 Foto</h4>
-                        <a href="${files.photo_url}" target="_blank">${files.photo_url}</a>
-                    </div>
-                `;
-            }
-            if (files.video_url) {
-                filesHtml += `
-                    <div class="result-item">
-                        <h4>🎥 Video</h4>
-                        <a href="${files.video_url}" target="_blank">${files.video_url}</a>
-                    </div>
-                `;
-            }
-            if (files.audio_url) {
-                filesHtml += `
-                    <div class="result-item">
-                        <h4>🎤 Audio</h4>
-                        <a href="${files.audio_url}" target="_blank">${files.audio_url}</a>
-                    </div>
-                `;
-            }
-            fileResults.innerHTML = filesHtml;
-
-            // Show analysis result
-            if (analysis && analysis.results) {
-                const fireDetected = analysis.fire_detected;
-                const confidence = (analysis.confidence * 100).toFixed(1);
-
-                analysisResult.className = 'analysis-result ' + (fireDetected ? 'fire' : 'no-fire');
-                
-                document.getElementById('analysisTitle').textContent = fireDetected 
-                    ? '🔥 ¡FUEGO DETECTADO!' 
-                    : '✅ Sin fuego detectado';
-                
-                document.getElementById('analysisDescription').textContent = fireDetected
-                    ? 'Vertex AI ha detectado fuego o humo en las capturas. Se ha enviado una alerta por email.'
-                    : 'No se detectó fuego ni humo en las capturas analizadas.';
-                
-                document.getElementById('confidenceFill').style.width = confidence + '%';
-                document.getElementById('confidenceText').textContent = `Confianza: ${confidence}%`;
-            } else {
-                analysisResult.className = 'analysis-result';
-                document.getElementById('analysisTitle').textContent = '⚠️ Análisis no disponible';
-                document.getElementById('analysisDescription').textContent = 'No se pudo completar el análisis con Vertex AI.';
-            }
-        }
-
-        function updateProgress(elementId, status) {
-            const element = document.getElementById(elementId);
-            const statusSpan = element.querySelector('.progress-status');
-            
-            switch(status) {
-                case 'uploading':
-                    statusSpan.textContent = '⏳';
-                    break;
-                case 'success':
-                    statusSpan.textContent = '✅';
-                    break;
-                case 'error':
-                    statusSpan.textContent = '❌';
-                    break;
-            }
-        }
-
-        function updateUI(state) {
-            const indicator = document.getElementById('statusIndicator');
-            const statusText = document.getElementById('statusText');
-            const btnStart = document.getElementById('btnStart');
-            const btnStop = document.getElementById('btnStop');
-            const recordingBadge = document.getElementById('recordingBadge');
-
-            indicator.className = 'status-indicator';
-
-            switch(state) {
-                case 'recording':
-                    indicator.classList.add('status-recording');
-                    statusText.textContent = '🔴 Grabando...';
-                    btnStart.disabled = true;
-                    btnStop.disabled = false;
-                    recordingBadge.classList.add('active');
-                    break;
-                case 'uploading':
-                    indicator.classList.add('status-uploading');
-                    statusText.textContent = '📤 Subiendo archivos...';
-                    btnStart.disabled = true;
-                    btnStop.disabled = true;
-                    recordingBadge.classList.remove('active');
-                    break;
-                case 'analyzing':
-                    indicator.classList.add('status-analyzing');
-                    statusText.textContent = '🤖 Analizando con Vertex AI...';
-                    break;
-                case 'complete':
-                    indicator.classList.add('status-complete');
-                    statusText.textContent = '✅ Captura completada';
-                    btnStart.disabled = false;
-                    btnStop.disabled = true;
-                    break;
-                default:
-                    indicator.classList.add('status-idle');
-                    statusText.textContent = 'Listo para capturar';
-                    btnStart.disabled = false;
-                    btnStop.disabled = true;
-            }
-        }
-
-        function resetCapture() {
-            videoChunks = [];
-            audioChunks = [];
-            capturedPhoto = null;
-            capturedVideo = null;
-            capturedAudio = null;
-            videoStream = null;
-            mediaRecorder = null;
-            audioRecorder = null;
+        function showRes(f,a){
+            document.getElementById('resCard').classList.remove('hide');
+            let h='';
+            if(f.photo_url)h+='<a href="'+f.photo_url+'" target="_blank" class="link">Foto</a>';
+            if(f.video_url)h+='<a href="'+f.video_url+'" target="_blank" class="link">Video</a>';
+            if(f.audio_url)h+='<a href="'+f.audio_url+'" target="_blank" class="link">Audio</a>';
+            document.getElementById('links').innerHTML=h||'<p style="color:#666;font-size:13px;">Sin archivos</p>';
+            const b=document.getElementById('resBox');
+            if(a&&a.success!==false){
+                const fire=a.fire_detected,conf=(a.confidence*100).toFixed(1);
+                b.className='result '+(fire?'fire':'safe');
+                b.innerHTML='<h4>'+(fire?'Fuego Detectado':'Sin Fuego')+'</h4><p>Confianza: '+conf+'%</p><div class="bar"><div class="bar-fill" style="width:'+conf+'%"></div></div>';
+            }else{b.className='result';b.innerHTML='<h4>Error en analisis</h4>';}
         }
     </script>
 </body>

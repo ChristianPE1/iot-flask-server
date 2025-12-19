@@ -3,518 +3,139 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>📊 Dashboard IoT - Detección de Incendios</title>
+    <title>Dashboard - IoT</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', system-ui, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-            min-height: 100vh;
-            color: white;
-            padding: 20px;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-
-        header h1 {
-            font-size: 28px;
-            margin-bottom: 10px;
-        }
-
-        .last-update {
-            color: #888;
-            font-size: 14px;
-        }
-
-        /* Stats Cards */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-
-        .stat-card {
-            background: rgba(255,255,255,0.1);
-            border-radius: 15px;
-            padding: 25px;
-            text-align: center;
-        }
-
-        .stat-card .icon {
-            font-size: 40px;
-            margin-bottom: 10px;
-        }
-
-        .stat-card .value {
-            font-size: 36px;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-
-        .stat-card .label {
-            color: #aaa;
-            font-size: 14px;
-        }
-
-        .stat-card.danger { border-left: 4px solid #f44336; }
-        .stat-card.warning { border-left: 4px solid #ff9800; }
-        .stat-card.success { border-left: 4px solid #4caf50; }
-        .stat-card.info { border-left: 4px solid #2196f3; }
-
-        /* Sections */
-        .section {
-            background: rgba(255,255,255,0.1);
-            border-radius: 15px;
-            padding: 25px;
-            margin-bottom: 25px;
-        }
-
-        .section h2 {
-            font-size: 20px;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        /* Alerts Table */
-        .alerts-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .alerts-table th,
-        .alerts-table td {
-            padding: 12px 15px;
-            text-align: left;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-        }
-
-        .alerts-table th {
-            background: rgba(255,255,255,0.05);
-            font-weight: 600;
-            color: #aaa;
-            font-size: 12px;
-            text-transform: uppercase;
-        }
-
-        .alerts-table tr:hover {
-            background: rgba(255,255,255,0.05);
-        }
-
-        .status-badge {
-            display: inline-block;
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: bold;
-        }
-
-        .status-alert {
-            background: #f44336;
-            color: white;
-        }
-
-        .status-normal {
-            background: #4caf50;
-            color: white;
-        }
-
-        /* Analysis Cards */
-        .analysis-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-            gap: 20px;
-        }
-
-        .analysis-card {
-            background: rgba(255,255,255,0.05);
-            border-radius: 12px;
-            padding: 20px;
-            border-left: 4px solid #2196f3;
-        }
-
-        .analysis-card.fire-detected {
-            border-left-color: #f44336;
-            background: rgba(244, 67, 54, 0.1);
-        }
-
-        .analysis-card.no-fire {
-            border-left-color: #4caf50;
-        }
-
-        .analysis-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-
-        .analysis-header h3 {
-            font-size: 16px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .analysis-time {
-            color: #888;
-            font-size: 12px;
-        }
-
-        .analysis-files {
-            margin: 15px 0;
-        }
-
-        .file-link {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 12px;
-            background: rgba(255,255,255,0.1);
-            border-radius: 8px;
-            margin-bottom: 8px;
-            text-decoration: none;
-            color: #64b5f6;
-            font-size: 13px;
-            transition: background 0.3s;
-        }
-
-        .file-link:hover {
-            background: rgba(255,255,255,0.2);
-        }
-
-        .confidence-meter {
-            margin-top: 15px;
-        }
-
-        .confidence-label {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 5px;
-            font-size: 14px;
-        }
-
-        .confidence-bar {
-            background: rgba(255,255,255,0.2);
-            height: 8px;
-            border-radius: 4px;
-            overflow: hidden;
-        }
-
-        .confidence-fill {
-            height: 100%;
-            border-radius: 4px;
-            transition: width 0.5s ease;
-        }
-
-        .confidence-fill.high { background: #f44336; }
-        .confidence-fill.medium { background: #ff9800; }
-        .confidence-fill.low { background: #4caf50; }
-
-        /* Navigation */
-        .nav-buttons {
-            display: flex;
-            gap: 15px;
-            margin-top: 20px;
-            justify-content: center;
-        }
-
-        .nav-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 12px 25px;
-            background: rgba(255,255,255,0.1);
-            color: white;
-            text-decoration: none;
-            border-radius: 10px;
-            transition: all 0.3s;
-        }
-
-        .nav-btn:hover {
-            background: rgba(255,255,255,0.2);
-            transform: translateY(-2px);
-        }
-
-        .nav-btn.primary {
-            background: linear-gradient(135deg, #4caf50, #388e3c);
-        }
-
-        /* Empty State */
-        .empty-state {
-            text-align: center;
-            padding: 40px;
-            color: #888;
-        }
-
-        .empty-state .icon {
-            font-size: 60px;
-            margin-bottom: 15px;
-            opacity: 0.5;
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .stats-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-            
-            .analysis-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .alerts-table {
-                font-size: 12px;
-            }
-            
-            .alerts-table th,
-            .alerts-table td {
-                padding: 8px;
-            }
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0a0a0a; color: #fff; min-height: 100vh; padding: 20px; }
+        .container { max-width: 1000px; margin: 0 auto; }
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid #1a1a1a; }
+        h1 { font-size: 18px; font-weight: 500; }
+        .back-link { color: #666; text-decoration: none; font-size: 14px; }
+        .back-link:hover { color: #fff; }
+        .alert-banner { display: none; background: #7f1d1d; border: 1px solid #dc2626; padding: 20px; border-radius: 12px; margin-bottom: 30px; text-align: center; }
+        .alert-banner.show { display: block; }
+        .alert-banner h2 { font-size: 16px; font-weight: 500; margin-bottom: 12px; }
+        .alert-banner a { display: inline-block; background: #fff; color: #000; padding: 10px 24px; border-radius: 6px; text-decoration: none; font-size: 14px; font-weight: 500; margin-top: 8px; }
+        .alert-banner a:hover { background: #e5e5e5; }
+        .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 30px; }
+        .stat { background: #111; border-radius: 12px; padding: 20px; text-align: center; border-left: 3px solid #333; }
+        .stat.danger { border-color: #dc2626; }
+        .stat.warning { border-color: #f59e0b; }
+        .stat.info { border-color: #3b82f6; }
+        .stat.success { border-color: #22c55e; }
+        .stat-value { font-size: 32px; font-weight: 300; margin-bottom: 4px; }
+        .stat-label { font-size: 12px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }
+        .actions { display: flex; gap: 12px; margin-bottom: 30px; }
+        .btn { padding: 12px 24px; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+        .btn-primary { background: #fff; color: #000; }
+        .btn-primary:hover { background: #e5e5e5; }
+        .btn-secondary { background: #1a1a1a; color: #fff; border: 1px solid #333; }
+        .btn-secondary:hover { background: #222; }
+        .btn-danger { background: #dc2626; color: #fff; }
+        .btn-danger:hover { background: #b91c1c; }
+        .card { background: #111; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+        .card h3 { font-size: 13px; font-weight: 500; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #1a1a1a; font-size: 14px; }
+        th { color: #666; font-weight: 500; font-size: 12px; text-transform: uppercase; }
+        .tag { display: inline-block; padding: 4px 10px; border-radius: 4px; font-size: 12px; }
+        .tag-alert { background: #7f1d1d; color: #ef4444; }
+        .tag-normal { background: #14532d; color: #22c55e; }
+        .analysis-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+        .analysis-item { background: #1a1a1a; border-radius: 8px; padding: 16px; border-left: 3px solid #333; }
+        .analysis-item.fire { border-color: #dc2626; }
+        .analysis-item.safe { border-color: #22c55e; }
+        .analysis-item h4 { font-size: 14px; font-weight: 500; margin-bottom: 8px; }
+        .analysis-item p { font-size: 12px; color: #666; margin-bottom: 4px; }
+        .analysis-item a { color: #3b82f6; text-decoration: none; font-size: 12px; }
+        .analysis-item a:hover { text-decoration: underline; }
+        .empty { color: #666; font-size: 14px; text-align: center; padding: 40px; }
+        @media (max-width: 768px) { .stats { grid-template-columns: repeat(2, 1fr); } }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>📊 Dashboard IoT - Detección de Incendios</h1>
-            <p class="last-update">Última actualización: <span id="lastUpdate">Cargando...</span></p>
-            
-            <!-- Alert Banner -->
-            <div id="alertBanner" style="display: none; background: linear-gradient(135deg, #ff5252, #f44336); padding: 20px; border-radius: 15px; margin-top: 20px; text-align: center; animation: pulse 2s infinite;">
-                <h2 style="margin: 0 0 10px 0; font-size: 24px;">⚠️ ¡ALERTAS PENDIENTES!</h2>
-                <p style="margin: 0 0 15px 0; font-size: 16px;">Hay <span id="pendingCount">0</span> alerta(s) del sensor que requieren atención</p>
-                <a href="/camera" style="display: inline-block; background: white; color: #f44336; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
-                    📷 ABRIR CÁMARA AHORA
-                </a>
-            </div>
+            <h1>Dashboard</h1>
+            <a href="/" class="back-link">Inicio</a>
         </header>
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.95; transform: scale(1.01); }
-        }
-
-        <!-- Stats Cards -->
-        <div class="stats-grid">
-            <div class="stat-card danger">
-                <div class="icon">🔥</div>
-                <div class="value" id="firesDetected">0</div>
-                <div class="label">Incendios Detectados</div>
-            </div>
-            <div class="stat-card warning">
-                <div class="icon">⚠️</div>
-                <div class="value" id="totalAlerts">0</div>
-                <div class="label">Alertas Recibidas</div>
-            </div>
-            <div class="stat-card info">
-                <div class="icon">🤖</div>
-                <div class="value" id="totalAnalysis">0</div>
-                <div class="label">Análisis Realizados</div>
-            </div>
-            <div class="stat-card success">
-                <div class="icon">✅</div>
-                <div class="value" id="systemStatus">Online</div>
-                <div class="label">Estado del Sistema</div>
-            </div>
+        <div class="alert-banner" id="alertBanner">
+            <h2>Alertas pendientes detectadas</h2>
+            <p><span id="pendingCount">0</span> alerta(s) requieren atencion</p>
+            <a href="/camera">Abrir Camara</a>
         </div>
-
-        <!-- Recent Alerts -->
-        <div class="section">
-            <h2>⚠️ Alertas Recientes del Sensor</h2>
-            <div id="alertsContainer">
-                <table class="alerts-table">
-                    <thead>
-                        <tr>
-                            <th>Fecha/Hora</th>
-                            <th>Temperatura</th>
-                            <th>Luz</th>
-                            <th>Estado</th>
-                        </tr>
-                    </thead>
-                    <tbody id="alertsBody">
-                        <tr>
-                            <td colspan="4" style="text-align: center; color: #888;">Cargando alertas...</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+        <div class="stats">
+            <div class="stat danger"><div class="stat-value" id="sFires">0</div><div class="stat-label">Fuegos detectados</div></div>
+            <div class="stat warning"><div class="stat-value" id="sAlerts">0</div><div class="stat-label">Alertas totales</div></div>
+            <div class="stat info"><div class="stat-value" id="sAnalysis">0</div><div class="stat-label">Analisis realizados</div></div>
+            <div class="stat success"><div class="stat-value">Online</div><div class="stat-label">Estado</div></div>
         </div>
-
-        <!-- Analysis History -->
-        <div class="section">
-            <h2>🤖 Análisis de Vertex AI</h2>
-            <div class="analysis-grid" id="analysisGrid">
-                <div class="empty-state">
-                    <div class="icon">📊</div>
-                    <p>Cargando análisis...</p>
-                </div>
-            </div>
+        <div class="actions">
+            <a href="/camera" class="btn btn-primary">Abrir Camara</a>
+            <button class="btn btn-danger" onclick="testAlert()">Simular Alerta</button>
+            <button class="btn btn-secondary" onclick="loadData()">Actualizar</button>
         </div>
-
-        <!-- Navigation -->
-        <div class="nav-buttons">
-            <a href="/camera" class="nav-btn primary">📷 Abrir Cámara</a>
-            <a href="/" class="nav-btn">🏠 Inicio</a>
-            <button class="nav-btn" onclick="refreshData()">🔄 Actualizar</button>
+        <div class="card">
+            <h3>Alertas del Sensor</h3>
+            <table>
+                <thead><tr><th>Fecha</th><th>Temperatura</th><th>Luz</th><th>Estado</th></tr></thead>
+                <tbody id="alertsBody"><tr><td colspan="4" class="empty">Cargando...</td></tr></tbody>
+            </table>
+        </div>
+        <div class="card">
+            <h3>Analisis de IA</h3>
+            <div class="analysis-grid" id="analysisGrid"><div class="empty">Cargando...</div></div>
         </div>
     </div>
-
     <script>
-        async function loadDashboardData() {
+        async function loadData() {
             try {
-                const response = await fetch('/api/dashboard-data');
-                const data = await response.json();
-                
-                // Update stats
-                document.getElementById('totalAlerts').textContent = data.total_alertas || 0;
-                document.getElementById('totalAnalysis').textContent = data.total_analysis || 0;
-                document.getElementById('firesDetected').textContent = data.fires_detected || 0;
-                
-                // Update last update time
-                document.getElementById('lastUpdate').textContent = new Date().toLocaleString('es-PE');
-                
-                // Show alert banner if there are pending alerts
-                const pendingAlerts = data.pending_alerts || 0;
-                const alertBanner = document.getElementById('alertBanner');
-                if (pendingAlerts > 0) {
-                    alertBanner.style.display = 'block';
-                    document.getElementById('pendingCount').textContent = pendingAlerts;
-                } else {
-                    alertBanner.style.display = 'none';
-                }
-                
-                // Update alerts table
-                updateAlertsTable(data.alertas || []);
-                
-                // Update analysis grid
-                updateAnalysisGrid(data.analysis_history || []);
-                
-            } catch (error) {
-                console.error('Error loading dashboard data:', error);
-            }
+                const res = await fetch('/api/dashboard-data');
+                const d = await res.json();
+                document.getElementById('sAlerts').textContent = d.total_alertas || 0;
+                document.getElementById('sAnalysis').textContent = d.total_analysis || 0;
+                document.getElementById('sFires').textContent = d.fires_detected || 0;
+                const pending = d.pending_alerts || 0;
+                const banner = document.getElementById('alertBanner');
+                if (pending > 0) { banner.classList.add('show'); document.getElementById('pendingCount').textContent = pending; }
+                else { banner.classList.remove('show'); }
+                renderAlerts(d.alertas || []);
+                renderAnalysis(d.analysis_history || []);
+            } catch (e) { console.error(e); }
         }
-
-        function updateAlertsTable(alertas) {
-            const tbody = document.getElementById('alertsBody');
-            
-            if (alertas.length === 0) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="4" style="text-align: center; color: #888;">
-                            No hay alertas registradas
-                        </td>
-                    </tr>
-                `;
-                return;
-            }
-
-            // Sort by timestamp descending (most recent first)
-            alertas.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-
-            tbody.innerHTML = alertas.map(alerta => `
-                <tr>
-                    <td>${alerta.timestamp || 'N/A'}</td>
-                    <td>${alerta.temperatura || 0}°C</td>
-                    <td>${alerta.luz || 0}</td>
-                    <td>
-                        <span class="status-badge ${alerta.estado === 'alert' ? 'status-alert' : 'status-normal'}">
-                            ${alerta.estado === 'alert' ? '🔥 ALERTA' : '✅ Normal'}
-                        </span>
-                    </td>
-                </tr>
-            `).join('');
+        function renderAlerts(list) {
+            const tb = document.getElementById('alertsBody');
+            if (!list.length) { tb.innerHTML = '<tr><td colspan="4" class="empty">Sin alertas</td></tr>'; return; }
+            list.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+            tb.innerHTML = list.map(a => 
+                '<tr><td>'+a.timestamp+'</td><td>'+(a.temperatura||0)+' C</td><td>'+(a.luz||0)+'</td><td><span class="tag '+(a.estado==='alert'?'tag-alert':'tag-normal')+'">'+(a.estado==='alert'?'ALERTA':'Normal')+'</span></td></tr>'
+            ).join('');
         }
-
-        function updateAnalysisGrid(analyses) {
-            const grid = document.getElementById('analysisGrid');
-            
-            if (analyses.length === 0) {
-                grid.innerHTML = `
-                    <div class="empty-state">
-                        <div class="icon">📊</div>
-                        <p>No hay análisis realizados aún</p>
-                        <p style="font-size: 14px; margin-top: 10px;">
-                            Use la cámara para capturar y analizar imágenes/videos
-                        </p>
-                    </div>
-                `;
-                return;
-            }
-
-            // Sort by timestamp descending
-            analyses.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-
-            grid.innerHTML = analyses.map(analysis => {
-                const fireDetected = analysis.fire_detected;
-                const confidence = (analysis.confidence * 100).toFixed(1);
-                const files = analysis.files || {};
-                const timestamp = new Date(analysis.timestamp).toLocaleString('es-PE');
-                
-                let confidenceClass = 'low';
-                if (confidence > 70) confidenceClass = 'high';
-                else if (confidence > 40) confidenceClass = 'medium';
-
-                let filesHtml = '';
-                if (files.photo) {
-                    filesHtml += `<a href="${files.photo}" target="_blank" class="file-link">📷 Ver Foto</a>`;
-                }
-                if (files.video) {
-                    filesHtml += `<a href="${files.video}" target="_blank" class="file-link">🎥 Ver Video</a>`;
-                }
-                if (files.audio) {
-                    filesHtml += `<a href="${files.audio}" target="_blank" class="file-link">🎤 Escuchar Audio</a>`;
-                }
-
-                return `
-                    <div class="analysis-card ${fireDetected ? 'fire-detected' : 'no-fire'}">
-                        <div class="analysis-header">
-                            <h3>
-                                ${fireDetected ? '🔥 Fuego Detectado' : '✅ Sin Fuego'}
-                            </h3>
-                            <span class="analysis-time">${timestamp}</span>
-                        </div>
-                        
-                        ${filesHtml ? `<div class="analysis-files">${filesHtml}</div>` : ''}
-                        
-                        <div class="confidence-meter">
-                            <div class="confidence-label">
-                                <span>Confianza</span>
-                                <span>${confidence}%</span>
-                            </div>
-                            <div class="confidence-bar">
-                                <div class="confidence-fill ${confidenceClass}" style="width: ${confidence}%"></div>
-                            </div>
-                        </div>
-                    </div>
-                `;
+        function renderAnalysis(list) {
+            const g = document.getElementById('analysisGrid');
+            if (!list.length) { g.innerHTML = '<div class="empty">Sin analisis</div>'; return; }
+            list.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+            g.innerHTML = list.map(a => {
+                const fire = a.fire_detected;
+                const conf = ((a.confidence||0)*100).toFixed(1);
+                const files = a.files || {};
+                let links = '';
+                if (files.photo) links += '<a href="'+files.photo+'" target="_blank">Foto</a> ';
+                if (files.video) links += '<a href="'+files.video+'" target="_blank">Video</a> ';
+                if (files.audio) links += '<a href="'+files.audio+'" target="_blank">Audio</a>';
+                return '<div class="analysis-item '+(fire?'fire':'safe')+'"><h4>'+(fire?'Fuego detectado':'Sin fuego')+'</h4><p>Confianza: '+conf+'%</p><p>'+new Date(a.timestamp).toLocaleString()+'</p><p>'+links+'</p></div>';
             }).join('');
         }
-
-        function refreshData() {
-            loadDashboardData();
+        async function testAlert() {
+            try {
+                const res = await fetch('/api/test-alert', { method: 'POST' });
+                const d = await res.json();
+                alert('Alerta de prueba creada');
+                loadData();
+            } catch (e) { alert('Error: ' + e.message); }
         }
-
-        // Load data on page load
-        loadDashboardData();
-
-        // Auto-refresh every 30 seconds
-        setInterval(loadDashboardData, 30000);
+        loadData();
+        setInterval(loadData, 30000);
     </script>
 </body>
 </html>
