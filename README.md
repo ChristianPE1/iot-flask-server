@@ -1,183 +1,303 @@
-# 🔥## 🚀 **Caracter## 📡 **Endpoints**
+# Sistema IoT de Deteccion de Incendios con IA
 
-- `GET /` - Panel de estado del servidor
-- `GET /camera` - **Sistema de cámara inteligente** 📱
-- `POST /alert` - Recibir alertas del Arduino
-- `GET /status` - Estado del servidor (JSON)
-- `GET /alertas` - Historial de alertas con análisis de IA (JSON)
-- `POST /upload/photo` - Recibir foto desde celular
-- `POST /upload/video` - Recibir video desde celular
-- `POST /upload/audio` - Recibir audio desde celulars**
+Sistema de monitoreo IoT inteligente que combina sensores Arduino, captura automatica de multimedia desde dispositivos moviles y analisis con Inteligencia Artificial para detectar incendios en tiempo real.
 
-- **API REST** para recibir alertas de sensores Arduino
+## Equipo de Desarrollo
+
+- **Christian Pardave Espinoza**
+- **Berly Diaz Castro**
+- **Diego Apaza Andaluz**
+- **Merisabel Ruelas Quenaya**
+- **Yanira Suni Quispe**
+- **Joselyn Quispe Huanca**
+
+## Características Principales
+
+- **API REST** para recepción de alertas desde sensores Arduino
 - **Sistema de cámara inteligente** que se activa automáticamente con alertas
-- **Procesamiento multimedia** con FFmpeg y almacenamiento en la nube
-- **Análisis con IA** mediante Vertex AI para detección de fuego/humo
-- **Notificaciones push** al celular en tiempo real
+- **Captura multimedia automática** (foto, video, audio) desde dispositivos móviles
+- **Procesamiento con IA** mediante Google Vertex AI para detección de fuego/humo
+- **Notificaciones push** en tiempo real al celular
+- **Almacenamiento en la nube** con Google Cloud Storage
 - **Historial de alertas** con análisis de IA incluido
-- **Interfaz web** moderna para monitoreo en tiempo realor IoT - Detección de Fuego
+- **Interfaz web moderna** para monitoreo en tiempo real
+- **Integración con n8n** para envío automático de correos electrónicos
 
-Sistema de monitoreo IoT que recibe alertas de sensores Arduino y captura multimedia automáticamente desde dispositivos móviles cuando se detecta una emergencia.
+## Tecnologías Utilizadas
 
-## 🚀 Características
+### Backend
+- **Python Flask** - Framework web principal
+- **Google Cloud Platform**:
+  - App Engine (despliegue)
+  - Cloud Storage (almacenamiento)
+  - Vertex AI (análisis de IA)
+- **Arduino** - Sensores IoT
 
-- **API REST** para recibir alertas de sensores Arduino
-- **Captura automática** de fotos, videos y audio desde celular
-- **Procesamiento multimedia** con FFmpeg
-- **Historial de alertas** con timestamps
-- **Interfaz web** simple para monitoreo
+### Frontend
+- **HTML5/CSS3** - Interfaz web moderna
+- **JavaScript** - Captura multimedia y notificaciones
+- **MediaRecorder API** - Grabación de video/audio
 
-## 📡 Endpoints
+### Integraciones
+- **n8n** - Automatización de workflows y envío de emails
+- **Gmail API** - Notificaciones por correo electrónico
 
-- `GET /` - Panel de estado del servidor
-- `POST /alert` - Recibir alertas del Arduino
-- `GET /status` - Estado del servidor (JSON)
-- `GET /alertas` - Historial de alertas (JSON)
+### Infraestructura
+- **Google Cloud Storage** - Almacenamiento de archivos multimedia
+- **Google Vertex AI** - Modelo de detección de fuego/humo
+- **HTTPS** - Comunicación segura
 
-## 🛠️ Instalación Local
+## Prerrequisitos
 
-1. **Clonar repositorio**:
+- Python 3.11+
+- Cuenta de Google Cloud Platform
+- Arduino con sensores de temperatura y luz
+- Dispositivo móvil con navegador moderno
+- n8n (para automatización de emails)
+
+## Instalación Local
+
+1. **Clonar el repositorio**:
    ```bash
-   git clone <tu-repo>
-   cd api-iot
+   git clone <url-del-repositorio>
+   cd proyecto-iot/api-iot
    ```
 
-2. **Instalar dependencias**:
+2. **Crear entorno virtual**:
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # En Windows: venv\Scripts\activate
+   ```
+
+3. **Instalar dependencias**:
    ```bash
    pip install -r requirements.txt
    ```
 
-3. **Configurar variables de entorno**:
-   Copia `.env` y ajusta la IP de tu celular:
-   ```bash
-   PHONE_IP=http://TU_IP_CELULAR:8080
-   CAPTURE_VIDEO=True
-   CAPTURE_AUDIO=True
-   DURATION=5
+4. **Configurar variables de entorno**:
+   Crear archivo `.env`:
+   ```env
+   BUCKET_NAME=tu-bucket-name
+   VERTEX_AI_ENDPOINT=https://REGION-aiplatform.googleapis.com/v1/projects/tu-vertex-project-id/locations/REGION/endpoints/tu-endpoint-id:predict
+   ALERT_EMAIL=tu-email@ejemplo.com
+   APP_URL=https://tu-app.appspot.com
+   N8N_WEBHOOK_ALERT=https://tu-n8n-instance/webhook/send-alerta
+   N8N_WEBHOOK_RESULT=https://tu-n8n-instance/webhook/send-result
    ```
 
-4. **Ejecutar servidor**:
+5. **Ejecutar servidor local**:
    ```bash
    python server.py
    ```
 
-## 🌐 Despliegue en Google App Engine
+   El servidor estará disponible en: `http://localhost:5000`
 
-### Prerrequisitos
-- Cuenta de Google Cloud vinculada a `christianyunho@gmail.com`
-- [Google Cloud SDK](https://cloud.google.com/sdk/docs/install) instalado
-- Proyecto `project-iot` creado en Google Cloud Console
+## Despliegue en Producción
 
-### Pasos de despliegue
+### Google App Engine
 
-1. **Autenticarse con la cuenta correcta**:
+1. **Autenticarse con Google Cloud**:
    ```bash
-   gcloud auth login christianyunho@gmail.com
-   gcloud config set project project-iot
+   gcloud auth login
+   gcloud config set project tu-proyecto-id
    ```
 
-2. **Verificar configuración**:
-   ```bash
-   gcloud config list
+2. **Configurar variables de entorno en `app.yaml`**:
+   ```yaml
+   env_variables:
+     BUCKET_NAME: "tu-bucket-name"
+     VERTEX_AI_ENDPOINT: "https://REGION-aiplatform.googleapis.com/v1/projects/tu-vertex-project-id/locations/REGION/endpoints/tu-endpoint-id:predict"
+     ALERT_EMAIL: "tu-email@ejemplo.com"
+     APP_URL: "https://tu-app.appspot.com"
+     N8N_WEBHOOK_ALERT: "https://tu-n8n-instance/webhook/send-alerta"
+     N8N_WEBHOOK_RESULT: "https://tu-n8n-instance/webhook/send-result"
    ```
 
-3. **Configurar variables de entorno en app.yaml**:
-   Edita `app.yaml` y cambia `PHONE_IP` por tu IP real del celular.
-
-4. **Desplegar en App Engine**:
+3. **Desplegar**:
    ```bash
    gcloud app deploy
    ```
 
-5. **Abrir la aplicación**:
+4. **Verificar despliegue**:
    ```bash
    gcloud app browse
    ```
 
-## 📱 Configuración del Arduino
+## Configuración del Arduino
 
-Tu Arduino debe enviar datos JSON a:
+El Arduino debe enviar datos JSON POST a:
 ```
-https://project-iot-481620.ue.r.appspot.com/alert
+https://tu-app.appspot.com/alert
 ```
 
-Formato esperado:
+**Formato esperado**:
 ```json
 {
-    "temp": 85.5,
-    "light": 800,
+    "temp": 45.5,
+    "light": 850,
     "status": "alert"
 }
 ```
 
-## 📂 Estructura del Proyecto
+**Umbrales configurados**:
+- Temperatura: > 30.0°C
+- Nivel de luz: > 400
+
+## API Endpoints
+
+### Endpoints Principales
+- `GET /` - Panel de estado del servidor
+- `GET /dashboard` - Dashboard con historial de alertas y análisis
+- `GET /camera` - Sistema de captura multimedia inteligente
+- `POST /alert` - Recibir alertas del Arduino
+- `GET /status` - Estado del servidor (JSON)
+- `GET /alertas` - Historial de alertas (JSON)
+
+### Endpoints de Upload
+- `POST /upload/photo` - Recibir foto desde dispositivo móvil
+- `POST /upload/video` - Recibir video desde dispositivo móvil
+- `POST /upload/audio` - Recibir audio desde dispositivo móvil
+- `POST /analyze` - Analizar multimedia con Vertex AI
+
+### Endpoints de Prueba
+- `POST /api/test-alert` - Simular alerta para pruebas
+- `POST /send-result` - Enviar resultado de verificación manual
+
+## Flujo de Funcionamiento
+
+1. **Arduino detecta anomalía** → Envía alerta con temperatura/luz
+2. **Sistema envía email** → Notificación para abrir cámara
+3. **Usuario abre cámara** → Captura foto/video/audio automáticamente
+4. **Vertex AI analiza** → Detecta presencia de fuego/humo
+5. **Sistema envía resultado** → Email con confirmación o falsa alarma
+6. **Dashboard actualiza** → Historial con análisis completo
+
+## Estructura del Proyecto
 
 ```
-api-iot/
-├── server.py           # Servidor Flask principal (con Cloud Storage)
-├── main.py            # Punto de entrada App Engine
-├── requirements.txt    # Dependencias Python
-├── app.yaml           # Configuración App Engine
-├── .env              # Variables locales
-├── .gitignore        # Archivos ignorados
-└── README.md         # Este archivo
+proyecto-iot/
+├── api-iot/                    # Backend Flask
+│   ├── server.py              # Servidor principal
+│   ├── main.py               # Punto de entrada App Engine
+│   ├── requirements.txt      # Dependencias Python
+│   ├── app.yaml              # Configuración App Engine
+│   ├── .env                  # Variables de entorno
+│   └── templates/            # Plantillas HTML
+│       ├── index.html
+│       ├── dashboard.html
+│       └── camera.html
+├── arduino/                   # Código Arduino
+│   └── codigoarduino.ino
+├── email-templates/          # Templates de email
+│   ├── email_alerta.html
+│   └── email_confirmacion.html
+├── docs/                     # Documentación
+│   ├── CONFIGURACION_N8N.md
+│   └── INSTRUCCIONES_PARA_COMPANERO.md
+└── README.md                 # Este archivo
 ```
 
-### ☁️ **Acceso a Archivos en Cloud Storage**
+## Almacenamiento en la Nube
 
-Los archivos capturados están disponibles públicamente en:
+### Google Cloud Storage
+- **Bucket**: `tu-bucket-name`
+- **Estructura**:
+  ```
+  gs://tu-bucket-name/
+  ├── photos/     # Fotos JPG
+  ├── videos/     # Videos WebM
+  └── audio/      # Audio WebM
+  ```
+
+### URLs Públicas
+Los archivos son accesibles públicamente:
 ```
-https://storage.googleapis.com/iot-captures-481620/
+https://storage.googleapis.com/tu-bucket-name/photos/
+https://storage.googleapis.com/tu-bucket-name/videos/
+https://storage.googleapis.com/tu-bucket-name/audio/
 ```
 
-Ejemplos de URLs:
-- Fotos: `https://storage.googleapis.com/iot-captures-481620/photos/photo_20251218_170000.jpg`
-- Videos: `https://storage.googleapis.com/iot-captures-481620/videos/video_20251218_170000.mp4`
-- Audio: `https://storage.googleapis.com/iot-captures-481620/audio/audio_20251218_170000.mp3`
+## Modelo de IA (Vertex AI)
 
-### 📊 **Monitoreo del Bucket**
+- **Proyecto**: `tu-vertex-project-id`
+- **Endpoint**: Detección de fuego/humo con YOLO v11
+- **Confianza**: Análisis de imágenes y videos
+- **Características**:
+  - Detección de fuego en tiempo real
+  - Análisis de audio para sonidos característicos
+  - Frame-by-frame analysis para videos
 
-Para ver los archivos almacenados:
+## Sistema de Notificaciones
+
+### n8n Workflows
+- **Webhook `/send-alerta`**: Email cuando se detecta posible incendio
+- **Webhook `/send-result`**: Email con resultado del análisis de IA
+
+### Gmail Integration
+- Emails automáticos con templates HTML profesionales
+- Notificaciones en tiempo real
+- Links directos a dashboard y cámara
+
+## Pruebas
+
+### Prueba de Alertas
 ```bash
-gsutil ls gs://iot-captures-481620/**
+# Simular alerta desde Arduino
+curl -X POST https://tu-app.appspot.com/alert \
+  -H "Content-Type: application/json" \
+  -d '{"temp": 45.5, "light": 850, "status": "alert"}'
 ```
 
-## ☁️ **Almacenamiento en la Nube**
+### Prueba de Webhooks
+```bash
+# Probar webhook de alerta
+curl -X POST "https://tu-n8n-instance/webhook/send-alerta" \
+  -H "Content-Type: application/json" \
+  -d '{"timestamp": "2025-12-19 12:30:45", "temperature": 45.5, "light": 850}'
+```
 
-- **Google Cloud Storage**: Todas las capturas (fotos, videos, audio) se almacenan automáticamente en Cloud Storage
-- **URLs públicas**: Los archivos son accesibles públicamente para visualización inmediata
-- **Organización**: Archivos organizados en carpetas `photos/`, `videos/`, `audio/`
-- **Persistencia**: Los archivos permanecen disponibles incluso si el contenedor se reinicia
+## Solución de Problemas
 
-## 🔧 Variables de Entorno
+### Problemas Comunes
 
-| Variable | Descripción | Valor por defecto |
-|----------|-------------|-------------------|
-| `PHONE_IP` | IP del celular con cámara | `http://192.168.1.100:8080` |
-| `CAPTURE_VIDEO` | Habilitar captura de video | `True` |
-| `CAPTURE_AUDIO` | Habilitar captura de audio | `True` |
-| `DURATION` | Duración de grabaciones (seg) | `5` |
-| `BUCKET_NAME` | Nombre del bucket de Cloud Storage | `iot-captures-481620` |
-| `PORT` | Puerto del servidor | `5000` |
-| `FLASK_ENV` | Entorno Flask | `production` |
+1. **Error 403 en Vertex AI**
+   - Verificar permisos de service account en proyecto compañero
+   - Ejecutar: `gcloud projects add-iam-policy-binding tu-vertex-project-id --member="serviceAccount:tu-proyecto-id@appspot.gserviceaccount.com" --role="roles/aiplatform.user"`
 
-## � **Cómo usar el sistema:**
+2. **Uploads no funcionan**
+   - Verificar permisos de Cloud Storage
+   - Revisar logs: `gcloud app logs tail -s default`
 
-1. **Configura tu Arduino** con el código actualizado (usa HTTPS y puerto 443)
-2. **Abre el sistema de cámara** en tu celular: `https://project-iot-481620.ue.r.appspot.com/camera`
-3. **Dale permisos** de cámara, micrófono y notificaciones
-4. **¡El sistema funcionará automáticamente!** 
-   - Arduino detecta calor/luz → Envía alerta → Celular captura evidencia → IA analiza contenido
+3. **Emails no llegan**
+   - Verificar configuración de n8n
+   - Revisar estado de workflows
 
-## 📱 **Sistema de Cámara Inteligente:**
-- Se activa **solo cuando hay alertas** de fuego
-- Captura **foto + video + audio** automáticamente
-- **Notificaciones push** en tiempo real
-- **Análisis con IA** para verificar presencia de fuego/humo
+## Métricas y Monitoreo
 
-## �📞 Soporte
+- **Dashboard en tiempo real**: `https://tu-app.appspot.com/dashboard`
+- **Logs de App Engine**: `gcloud app logs tail -s default`
+- **Monitoreo de bucket**: `gsutil ls gs://tu-bucket-name/**`
 
-Para problemas o mejoras, contactar a: **christianyunho@gmail.com**
+## Contribución
+
+1. Fork el proyecto
+2. Crear rama para feature (`git checkout -b feature/nueva-funcionalidad`)
+3. Commit cambios (`git commit -am 'Agrega nueva funcionalidad'`)
+4. Push a la rama (`git push origin feature/nueva-funcionalidad`)
+5. Crear Pull Request
+
+## Licencia
+
+Este proyecto está bajo la Licencia MIT. Ver archivo `LICENSE` para más detalles.
+
+## Contacto
+
+- **Email**: tu-email@ejemplo.com
+- **Proyecto**: Sistema IoT de Detección de Incendios
+- **Institución**: Universidad Nacional de San Agustín (UNSA)
 
 ---
-**¡Tu sistema IoT inteligente con IA está listo para detectar incendios en tiempo real!** 🔥🚨🤖
+
+**¡Sistema IoT inteligente con IA listo para detectar incendios en tiempo real!**
+
+*Desarrollado por el equipo de estudiantes de Ingeniería de Sistemas - UNSA*
