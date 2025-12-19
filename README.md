@@ -268,7 +268,7 @@ https://storage.googleapis.com/tu-bucket-name/audio/
 ```
 
 ## Modelo de IA (Vertex AI)
-
+- **Github**: https://github.com/Berly01/Yolo-Fire-Smoke-Detector.git
 - **Proyecto**: `tu-vertex-project-id`
 - **Endpoint**: Detección de fuego/humo con YOLO v11
 - **Confianza**: Análisis de imágenes y videos
