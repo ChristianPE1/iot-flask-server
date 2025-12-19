@@ -10,8 +10,6 @@ from dotenv import load_dotenv
 from google.cloud import storage
 from google.auth import default
 from google.auth.transport.requests import Request
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail, Email, To, Content
 
 # Cargar variables de entorno
 load_dotenv()
@@ -40,11 +38,6 @@ storage_client = storage.Client()
 VERTEX_AI_ENDPOINT = os.getenv('VERTEX_AI_ENDPOINT', 'https://southamerica-east1-aiplatform.googleapis.com/v1/projects/peaceful-impact-478922-t6/locations/southamerica-east1/endpoints/4530889505971896320:predict')
 VERTEX_AI_PROJECT = os.getenv('VERTEX_AI_PROJECT', 'peaceful-impact-478922-t6')
 
-# Configuración de Email
-SENDGRID_API_KEY = os.getenv('SENDGRID_API_KEY', '')
-ALERT_EMAIL = os.getenv('ALERT_EMAIL', 'cpardave@unsa.edu.pe')
-FROM_EMAIL = os.getenv('FROM_EMAIL', 'alerts@iot-fire-detection.com')
-
 # Cliente de autenticación
 try:
     # Intentar usar credenciales por defecto (funciona en App Engine)
@@ -64,124 +57,9 @@ def get_auth_token():
         print(f"   [ERROR AUTH] {e}")
         return None
 
-# ============================================
-# FUNCIONES DE EMAIL
-# ============================================
-
-def send_email_notification(subject, body, to_email=None):
-    """Enviar notificación por email usando SendGrid"""
-    try:
-        if not SENDGRID_API_KEY:
-            print("   [EMAIL] SendGrid API Key no configurada, saltando email")
-            return False
-        
-        recipient = to_email or ALERT_EMAIL
-        
-        message = Mail(
-            from_email=FROM_EMAIL,
-            to_emails=recipient,
-            subject=subject,
-            html_content=body
-        )
-        
-        sg = SendGridAPIClient(SENDGRID_API_KEY)
-        response = sg.send(message)
-        
-        print(f"   [EMAIL] Enviado a {recipient}: {subject} (Status: {response.status_code})")
-        return response.status_code == 202
-        
-    except Exception as e:
-        print(f"   [ERROR EMAIL] {e}")
-        return False
-
-def send_alert_email(alerta_data):
-    """Enviar email cuando Arduino detecta alerta"""
-    subject = "🔥 [ALERTA IoT] Posible incendio detectado - Activar cámara"
-    
-    body = f"""
-    <html>
-    <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
-        <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-            <h1 style="color: #d32f2f; text-align: center;">🔥 ALERTA DE INCENDIO</h1>
-            
-            <div style="background: #ffebee; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                <h2 style="color: #c62828; margin-top: 0;">Datos del sensor:</h2>
-                <p><strong>📅 Fecha/Hora:</strong> {alerta_data.get('timestamp', 'N/A')}</p>
-                <p><strong>🌡️ Temperatura:</strong> {alerta_data.get('temperatura', 'N/A')}°C</p>
-                <p><strong>💡 Nivel de luz:</strong> {alerta_data.get('luz', 'N/A')}</p>
-                <p><strong>⚠️ Estado:</strong> <span style="color: red; font-weight: bold;">ALERTA</span></p>
-            </div>
-            
-            <div style="text-align: center; margin: 30px 0;">
-                <p style="font-size: 18px;">Por favor, active la cámara para capturar evidencia:</p>
-                <a href="https://project-iot-481620.ue.r.appspot.com/camera" 
-                   style="display: inline-block; background: #d32f2f; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-size: 18px; font-weight: bold;">
-                    📷 ABRIR CÁMARA
-                </a>
-            </div>
-            
-            <p style="color: #666; font-size: 12px; text-align: center;">
-                Sistema IoT de Detección de Incendios<br>
-                Este es un mensaje automático.
-            </p>
-        </div>
-    </body>
-    </html>
-    """
-    
-    return send_email_notification(subject, body)
-
-def send_fire_detected_email(analysis_result, files_info):
-    """Enviar email cuando Vertex AI confirma fuego"""
-    subject = "🚨 [CONFIRMADO] Vertex AI ha detectado FUEGO/HUMO"
-    
-    confidence = analysis_result.get('confidence', 0) * 100
-    
-    body = f"""
-    <html>
-    <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
-        <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-            <h1 style="color: #d32f2f; text-align: center;">🚨 FUEGO CONFIRMADO POR IA</h1>
-            
-            <div style="background: #ff5252; color: white; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
-                <h2 style="margin: 0;">⚠️ ACCIÓN INMEDIATA REQUERIDA</h2>
-                <p style="font-size: 24px; margin: 10px 0;">Confianza: {confidence:.1f}%</p>
-            </div>
-            
-            <div style="background: #fff3e0; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                <h3 style="color: #e65100; margin-top: 0;">📊 Resultados del análisis:</h3>
-                <p><strong>🔥 Fuego detectado:</strong> SÍ</p>
-                <p><strong>📈 Confianza:</strong> {confidence:.1f}%</p>
-                <p><strong>🔢 Detecciones:</strong> {analysis_result.get('detections_count', 'N/A')}</p>
-                <p><strong>📁 Tipo de archivo:</strong> {analysis_result.get('file_type', 'N/A')}</p>
-            </div>
-            
-            <div style="background: #e3f2fd; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                <h3 style="color: #1565c0; margin-top: 0;">📂 Archivos capturados:</h3>
-                <ul>
-                    {''.join([f"<li><a href='{url}'>{name}</a></li>" for name, url in files_info.items() if url])}
-                </ul>
-            </div>
-            
-            <div style="text-align: center; margin: 30px 0;">
-                <a href="https://project-iot-481620.ue.r.appspot.com/dashboard" 
-                   style="display: inline-block; background: #1976d2; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-size: 16px;">
-                    📊 VER DASHBOARD
-                </a>
-            </div>
-            
-            <p style="color: #666; font-size: 12px; text-align: center;">
-                Sistema IoT de Detección de Incendios con Vertex AI<br>
-                Análisis realizado: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-            </p>
-        </div>
-    </body>
-    </html>
-    """
-    
-    return send_email_notification(subject, body)
-
+# Historial de alertas
 alertas = []
+analysis_history = []
 
 # ============================================
 # FUNCIONES CLOUD STORAGE
@@ -531,14 +409,9 @@ def recibir_alerta():
         print(f"Luz: {luz}")
         print(f"Estado: {estado}")
         
-        # Si es ALERTA REAL, enviar email de notificación
+        # Simplemente guardar la alerta - el usuario la verá en el dashboard
         if estado == "alert":
-            print("\n>>> ALERTA DETECTADA - ENVIANDO EMAIL <<<")
-            
-            # Enviar email para que el usuario active la cámara
-            send_alert_email(alerta)
-            
-            print(">>> EMAIL ENVIADO <<<")
+            print("\n>>> ⚠️ ALERTA DETECTADA - Visible en Dashboard <<<")
         
         print("="*60)
         
@@ -738,20 +611,11 @@ def analyze_files():
             "confidence": results["max_confidence"]
         }
         
-        if "analysis_history" not in globals():
-            global analysis_history
-            analysis_history = []
         analysis_history.append(analysis_record)
         
-        # Enviar email si se detectó fuego
+        # Registrar en consola si se detectó fuego - el usuario lo verá en el dashboard
         if results["fire_detected"]:
-            print("   [ALERT] 🔥 FUEGO DETECTADO POR VERTEX AI - Enviando email")
-            send_fire_detected_email({
-                'fire_detected': True,
-                'confidence': results["max_confidence"],
-                'detections_count': results.get('photo_analysis', {}).get('detections_count', 0),
-                'file_type': 'image/video'
-            }, files_info)
+            print("   [ALERT] 🔥 FUEGO DETECTADO POR VERTEX AI - Visible en Dashboard")
         
         return jsonify({
             "status": "success",
@@ -885,16 +749,16 @@ def dashboard():
 @app.route('/api/dashboard-data')
 def dashboard_data():
     """Datos para el dashboard"""
-    global analysis_history
-    if 'analysis_history' not in globals():
-        analysis_history = []
+    # Contar alertas recientes (últimas 24 horas podría ser útil)
+    recent_alerts = [a for a in alertas if a.get('estado') == 'alert']
     
     return jsonify({
         "alertas": alertas[-20:],
-        "analysis_history": analysis_history[-20:] if analysis_history else [],
+        "analysis_history": analysis_history[-20:],
         "total_alertas": len(alertas),
-        "total_analysis": len(analysis_history) if analysis_history else 0,
-        "fires_detected": sum(1 for a in (analysis_history or []) if a.get('fire_detected', False))
+        "total_analysis": len(analysis_history),
+        "fires_detected": sum(1 for a in analysis_history if a.get('fire_detected', False)),
+        "pending_alerts": len([a for a in alertas[-10:] if a.get('estado') == 'alert'])
     })
 
 # ============================================

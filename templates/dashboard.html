@@ -294,7 +294,21 @@
         <header>
             <h1>📊 Dashboard IoT - Detección de Incendios</h1>
             <p class="last-update">Última actualización: <span id="lastUpdate">Cargando...</span></p>
+            
+            <!-- Alert Banner -->
+            <div id="alertBanner" style="display: none; background: linear-gradient(135deg, #ff5252, #f44336); padding: 20px; border-radius: 15px; margin-top: 20px; text-align: center; animation: pulse 2s infinite;">
+                <h2 style="margin: 0 0 10px 0; font-size: 24px;">⚠️ ¡ALERTAS PENDIENTES!</h2>
+                <p style="margin: 0 0 15px 0; font-size: 16px;">Hay <span id="pendingCount">0</span> alerta(s) del sensor que requieren atención</p>
+                <a href="/camera" style="display: inline-block; background: white; color: #f44336; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
+                    📷 ABRIR CÁMARA AHORA
+                </a>
+            </div>
         </header>
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.95; transform: scale(1.01); }
+        }
 
         <!-- Stats Cards -->
         <div class="stats-grid">
@@ -374,6 +388,16 @@
                 
                 // Update last update time
                 document.getElementById('lastUpdate').textContent = new Date().toLocaleString('es-PE');
+                
+                // Show alert banner if there are pending alerts
+                const pendingAlerts = data.pending_alerts || 0;
+                const alertBanner = document.getElementById('alertBanner');
+                if (pendingAlerts > 0) {
+                    alertBanner.style.display = 'block';
+                    document.getElementById('pendingCount').textContent = pendingAlerts;
+                } else {
+                    alertBanner.style.display = 'none';
+                }
                 
                 // Update alerts table
                 updateAlertsTable(data.alertas || []);
