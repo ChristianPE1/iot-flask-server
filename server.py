@@ -28,7 +28,10 @@ BUCKET_NAME = os.getenv('BUCKET_NAME', 'iot-captures-481620')
 VERTEX_AI_ENDPOINT = os.getenv('VERTEX_AI_ENDPOINT', 'https://southamerica-east1-aiplatform.googleapis.com/v1/projects/peaceful-impact-478922-t6/locations/southamerica-east1/endpoints/4530889505971896320:predict')
 ALERT_EMAIL = os.getenv('ALERT_EMAIL', 'cpardave@unsa.edu.pe')
 APP_URL = os.getenv('APP_URL', 'https://project-iot-481620.ue.r.appspot.com')
-N8N_WEBHOOK = 'https://christiantestcloud.app.n8n.cloud/webhook/send-alerta'  # Webhook en producción
+
+# N8N Webhooks - PRODUCCIÓN
+N8N_WEBHOOK_ALERT = 'https://christiantestcloud.app.n8n.cloud/webhook/send-alerta'  # Email: "ABRE LA CÁMARA"
+N8N_WEBHOOK_RESULT = 'https://christiantestcloud.app.n8n.cloud/webhook/send-result'  # Email: "Resultado de verificación"
 
 # Cliente de autenticación
 credentials = None
@@ -275,21 +278,39 @@ def process_vertex_response(result):
 # ============================================
 
 def send_n8n_alert(alert_data):
-    """Enviar alerta a n8n webhook"""
+    """Enviar alerta INICIAL a n8n webhook (email: ABRE LA CÁMARA)"""
     try:
         response = requests.post(
-            N8N_WEBHOOK,
+            N8N_WEBHOOK_ALERT,
             json=alert_data,
             timeout=10
         )
         if response.status_code == 200:
-            print(f"[N8N] ✓ Alerta enviada a n8n")
+            print(f"[N8N ALERT] ✓ Email de alerta enviado")
             return True
         else:
-            print(f"[N8N] ✗ Error {response.status_code}: {response.text[:200]}")
+            print(f"[N8N ALERT] ✗ Error {response.status_code}: {response.text[:200]}")
             return False
     except Exception as e:
-        print(f"[N8N ERROR] {e}")
+        print(f"[N8N ALERT ERROR] {e}")
+        return False
+
+def send_n8n_result(result_data):
+    """Enviar RESULTADO de verificación a n8n webhook (email: RESULTADO)"""
+    try:
+        response = requests.post(
+            N8N_WEBHOOK_RESULT,
+            json=result_data,
+            timeout=10
+        )
+        if response.status_code == 200:
+            print(f"[N8N RESULT] ✓ Email de resultado enviado")
+            return True
+        else:
+            print(f"[N8N RESULT] ✗ Error {response.status_code}: {response.text[:200]}")
+            return False
+    except Exception as e:
+        print(f"[N8N RESULT ERROR] {e}")
         return False
 
 def send_alert_email():
@@ -363,7 +384,7 @@ def recibir_alerta():
 
 @app.route('/api/test-alert', methods=['POST'])
 def test_alert():
-    """Endpoint para probar alertas sin Arduino"""
+    """Endpoint para probar alertas sin Arduino - Solo guarda alerta, NO envía email"""
     alerta = {
         "id": len(alertas) + 1,
         "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
@@ -374,24 +395,61 @@ def test_alert():
     }
     
     alertas.append(alerta)
-    send_alert_email()
     
-    # Probar webhook de n8n
-    n8n_test_data = {
-        "timestamp": alerta["timestamp"],
-        "fire_detected": True,
-        "confidence": 0.95,
-        "temperature": alerta["temperatura"],
-        "light": alerta["luz"],
-        "alert_message": "TEST: Alerta de prueba desde dashboard",
-        "dashboard_url": f"{APP_URL}/dashboard",
-        "test": True
-    }
-    send_n8n_alert(n8n_test_data)
+    # NO enviar email aquí - el email se envía cuando Vertex AI detecta fuego
+    print(f"[TEST ALERT] Alerta de prueba creada (sin enviar email)")
     
-    print(f"[TEST ALERT] Alerta de prueba creada y enviada a n8n")
-    
-    return jsonify({"status": "success", "alerta": alerta}), 200
+    return jsonify({
+        "status": "success", 
+        "alerta": alerta,
+        "message": "Alerta guardada. Ahora ve a /camera para capturar y analizar."
+    }), 200
+
+@app.route('/send-result', methods=['POST'])
+def send_result():
+    """Enviar resultado de verificación del usuario (después de abrir la cámara)"""
+    try:
+        data = request.json
+        
+        user_confirmed = data.get('user_confirmed', False)
+        is_false_alarm = data.get('is_false_alarm', False)
+        
+        # Determinar status y color según el resultado
+        if user_confirmed and not is_false_alarm:
+            status_text = "INCENDIO CONFIRMADO"
+            status_bg_color = "#dc2626"  # Rojo
+        elif user_confirmed and is_false_alarm:
+            status_text = "FALSA ALARMA"
+            status_bg_color = "#f59e0b"  # Naranja
+        else:
+            status_text = "SIN CONFIRMACIÓN"
+            status_bg_color = "#6b7280"  # Gris
+        
+        # Datos del resultado
+        result_data = {
+            "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            "user_confirmed": user_confirmed,
+            "is_false_alarm": is_false_alarm,
+            "status_text": status_text,
+            "status_bg_color": status_bg_color,
+            "user_response": data.get('user_response', 'El usuario no proporcionó comentarios.'),
+            "photo_url": data.get('photo_url', ''),
+            "video_url": data.get('video_url', ''),
+            "audio_url": data.get('audio_url', ''),
+            "dashboard_url": f"{APP_URL}/dashboard"
+        }
+        
+        # Enviar a n8n webhook de resultado
+        success = send_n8n_result(result_data)
+        
+        if success:
+            return jsonify({"status": "success", "message": "Resultado enviado"}), 200
+        else:
+            return jsonify({"status": "error", "message": "No se pudo enviar resultado"}), 500
+            
+    except Exception as e:
+        print(f"[SEND RESULT ERROR] {e}")
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/alertas', methods=['GET'])
 def ver_alertas():
@@ -623,14 +681,20 @@ def analyze_files():
         if results["fire_detected"]:
             print(f"[ALERT] 🔥 FUEGO DETECTADO - Confianza: {results['confidence']:.1%}")
             
-            # Enviar a n8n
+            # Obtener datos de la última alerta del Arduino (temperatura y luz)
+            last_alert = alertas[-1] if alertas else {}
+            temperatura = last_alert.get('temperatura', 0)
+            luz = last_alert.get('luz', 0)
+            
+            # Enviar email de ALERTA (para que abran la cámara)
             n8n_data = {
-                "timestamp": results["timestamp"],
+                "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 "fire_detected": True,
-                "confidence": results["confidence"],
-                "photo_url": files_info.get("photo", ""),
-                "video_url": files_info.get("video", ""),
+                "confidence": round(results["confidence"] * 100, 1),  # Convertir a porcentaje
+                "temperature": temperatura,
+                "light": luz,
                 "alert_message": f"ALERTA: Fuego detectado con {results['confidence']:.1%} de confianza",
+                "camera_url": f"{APP_URL}/camera",
                 "dashboard_url": f"{APP_URL}/dashboard"
             }
             send_n8n_alert(n8n_data)
