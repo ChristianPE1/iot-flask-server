@@ -376,19 +376,30 @@ def ver_alertas():
 def upload_photo():
     """Subir foto a Cloud Storage"""
     try:
+        print(f"[UPLOAD PHOTO] Request files: {list(request.files.keys())}")
+        print(f"[UPLOAD PHOTO] Content-Type: {request.content_type}")
+        print(f"[UPLOAD PHOTO] Content-Length: {request.content_length}")
+        
         if 'photo' not in request.files:
+            print(f"[UPLOAD PHOTO ERROR] 'photo' not in request.files")
             return jsonify({"error": "No photo file", "success": False}), 400
         
         file = request.files['photo']
+        print(f"[UPLOAD PHOTO] File received: {file.filename}, size: {file.content_length}")
+        
         if file.filename == '':
+            print(f"[UPLOAD PHOTO ERROR] Empty filename")
             return jsonify({"error": "Empty filename", "success": False}), 400
         
         # Leer bytes del archivo
         file_bytes = file.read()
+        print(f"[UPLOAD PHOTO] Read {len(file_bytes)} bytes")
         
         # Generar nombre
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         blob_name = f"photos/photo_{timestamp}.jpg"
+        
+        print(f"[UPLOAD PHOTO] Uploading to: {blob_name}")
         
         # Subir a Cloud Storage
         public_url, gcs_uri = upload_bytes_to_cloud_storage(
@@ -398,7 +409,10 @@ def upload_photo():
         )
         
         if not public_url:
+            print(f"[UPLOAD PHOTO ERROR] upload_bytes_to_cloud_storage returned None")
             return jsonify({"error": "Upload failed", "success": False}), 500
+        
+        print(f"[UPLOAD PHOTO SUCCESS] URL: {public_url}")
         
         return jsonify({
             "success": True,
@@ -407,7 +421,7 @@ def upload_photo():
         }), 200
         
     except Exception as e:
-        print(f"[UPLOAD ERROR] {e}")
+        print(f"[UPLOAD PHOTO ERROR] {e}")
         import traceback
         traceback.print_exc()
         return jsonify({"error": str(e), "success": False}), 500
@@ -416,17 +430,27 @@ def upload_photo():
 def upload_video():
     """Subir video a Cloud Storage"""
     try:
+        print(f"[UPLOAD VIDEO] Request files: {list(request.files.keys())}")
+        print(f"[UPLOAD VIDEO] Content-Type: {request.content_type}")
+        
         if 'video' not in request.files:
+            print(f"[UPLOAD VIDEO ERROR] 'video' not in request.files")
             return jsonify({"error": "No video file", "success": False}), 400
         
         file = request.files['video']
+        print(f"[UPLOAD VIDEO] File received: {file.filename}")
+        
         if file.filename == '':
+            print(f"[UPLOAD VIDEO ERROR] Empty filename")
             return jsonify({"error": "Empty filename", "success": False}), 400
         
         file_bytes = file.read()
+        print(f"[UPLOAD VIDEO] Read {len(file_bytes)} bytes")
         
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         blob_name = f"videos/video_{timestamp}.webm"
+        
+        print(f"[UPLOAD VIDEO] Uploading to: {blob_name}")
         
         public_url, gcs_uri = upload_bytes_to_cloud_storage(
             file_bytes,
@@ -435,7 +459,10 @@ def upload_video():
         )
         
         if not public_url:
+            print(f"[UPLOAD VIDEO ERROR] upload_bytes_to_cloud_storage returned None")
             return jsonify({"error": "Upload failed", "success": False}), 500
+        
+        print(f"[UPLOAD VIDEO SUCCESS] URL: {public_url}")
         
         return jsonify({
             "success": True,
@@ -444,7 +471,7 @@ def upload_video():
         }), 200
         
     except Exception as e:
-        print(f"[UPLOAD ERROR] {e}")
+        print(f"[UPLOAD VIDEO ERROR] {e}")
         import traceback
         traceback.print_exc()
         return jsonify({"error": str(e), "success": False}), 500
@@ -453,17 +480,27 @@ def upload_video():
 def upload_audio():
     """Subir audio a Cloud Storage"""
     try:
+        print(f"[UPLOAD AUDIO] Request files: {list(request.files.keys())}")
+        print(f"[UPLOAD AUDIO] Content-Type: {request.content_type}")
+        
         if 'audio' not in request.files:
+            print(f"[UPLOAD AUDIO ERROR] 'audio' not in request.files")
             return jsonify({"error": "No audio file", "success": False}), 400
         
         file = request.files['audio']
+        print(f"[UPLOAD AUDIO] File received: {file.filename}")
+        
         if file.filename == '':
+            print(f"[UPLOAD AUDIO ERROR] Empty filename")
             return jsonify({"error": "Empty filename", "success": False}), 400
         
         file_bytes = file.read()
+        print(f"[UPLOAD AUDIO] Read {len(file_bytes)} bytes")
         
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         blob_name = f"audio/audio_{timestamp}.webm"
+        
+        print(f"[UPLOAD AUDIO] Uploading to: {blob_name}")
         
         public_url, gcs_uri = upload_bytes_to_cloud_storage(
             file_bytes,
@@ -472,7 +509,10 @@ def upload_audio():
         )
         
         if not public_url:
+            print(f"[UPLOAD AUDIO ERROR] upload_bytes_to_cloud_storage returned None")
             return jsonify({"error": "Upload failed", "success": False}), 500
+        
+        print(f"[UPLOAD AUDIO SUCCESS] URL: {public_url}")
         
         return jsonify({
             "success": True,
@@ -481,7 +521,7 @@ def upload_audio():
         }), 200
         
     except Exception as e:
-        print(f"[UPLOAD ERROR] {e}")
+        print(f"[UPLOAD AUDIO ERROR] {e}")
         import traceback
         traceback.print_exc()
         return jsonify({"error": str(e), "success": False}), 500
