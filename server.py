@@ -28,6 +28,7 @@ BUCKET_NAME = os.getenv('BUCKET_NAME', 'iot-captures-481620')
 VERTEX_AI_ENDPOINT = os.getenv('VERTEX_AI_ENDPOINT', 'https://southamerica-east1-aiplatform.googleapis.com/v1/projects/peaceful-impact-478922-t6/locations/southamerica-east1/endpoints/4530889505971896320:predict')
 ALERT_EMAIL = os.getenv('ALERT_EMAIL', 'cpardave@unsa.edu.pe')
 APP_URL = os.getenv('APP_URL', 'https://project-iot-481620.ue.r.appspot.com')
+N8N_WEBHOOK = 'https://christiantestcloud.app.n8n.cloud/webhook-test/send-alerta'
 
 # Cliente de autenticación
 credentials = None
@@ -270,8 +271,26 @@ def process_vertex_response(result):
     }
 
 # ============================================
-# FUNCIONES EMAIL (Gmail API)
+# FUNCIONES EMAIL (Gmail API) Y N8N
 # ============================================
+
+def send_n8n_alert(alert_data):
+    """Enviar alerta a n8n webhook"""
+    try:
+        response = requests.post(
+            N8N_WEBHOOK,
+            json=alert_data,
+            timeout=10
+        )
+        if response.status_code == 200:
+            print(f"[N8N] ✓ Alerta enviada a n8n")
+            return True
+        else:
+            print(f"[N8N] ✗ Error {response.status_code}: {response.text[:200]}")
+            return False
+    except Exception as e:
+        print(f"[N8N ERROR] {e}")
+        return False
 
 def send_alert_email():
     """Enviar email simple de alerta usando Gmail API"""
@@ -357,7 +376,20 @@ def test_alert():
     alertas.append(alerta)
     send_alert_email()
     
-    print(f"[TEST ALERT] Alerta de prueba creada")
+    # Probar webhook de n8n
+    n8n_test_data = {
+        "timestamp": alerta["timestamp"],
+        "fire_detected": True,
+        "confidence": 0.95,
+        "temperature": alerta["temperatura"],
+        "light": alerta["luz"],
+        "alert_message": "TEST: Alerta de prueba desde dashboard",
+        "dashboard_url": f"{APP_URL}/dashboard",
+        "test": True
+    }
+    send_n8n_alert(n8n_test_data)
+    
+    print(f"[TEST ALERT] Alerta de prueba creada y enviada a n8n")
     
     return jsonify({"status": "success", "alerta": alerta}), 200
 
@@ -587,8 +619,21 @@ def analyze_files():
         }
         analysis_history.append(record)
         
+        # Si se detectó fuego, enviar alerta a n8n
         if results["fire_detected"]:
-            print(f"[ALERT] FUEGO DETECTADO - Confianza: {results['confidence']:.1%}")
+            print(f"[ALERT] 🔥 FUEGO DETECTADO - Confianza: {results['confidence']:.1%}")
+            
+            # Enviar a n8n
+            n8n_data = {
+                "timestamp": results["timestamp"],
+                "fire_detected": True,
+                "confidence": results["confidence"],
+                "photo_url": files_info.get("photo", ""),
+                "video_url": files_info.get("video", ""),
+                "alert_message": f"ALERTA: Fuego detectado con {results['confidence']:.1%} de confianza",
+                "dashboard_url": f"{APP_URL}/dashboard"
+            }
+            send_n8n_alert(n8n_data)
         
         return jsonify({
             "success": True,

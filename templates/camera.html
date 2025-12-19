@@ -3,167 +3,435 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Camara - IoT</title>
+    <title>Camara - IoT Fire Detection</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0a0a0a; color: #fff; min-height: 100vh; padding: 20px; }
-        .container { max-width: 600px; margin: 0 auto; }
-        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid #1a1a1a; }
-        h1 { font-size: 18px; font-weight: 500; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+            background: #0a0a0a; 
+            color: #fff; 
+            min-height: 100vh; 
+            padding: 20px; 
+        }
+        .container { max-width: 800px; margin: 0 auto; }
+        header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 30px; 
+            padding-bottom: 20px; 
+            border-bottom: 1px solid #1a1a1a; 
+        }
+        h1 { font-size: 20px; font-weight: 500; }
         .back-link { color: #666; text-decoration: none; font-size: 14px; }
         .back-link:hover { color: #fff; }
-        .video-box { background: #111; border-radius: 12px; overflow: hidden; margin-bottom: 20px; position: relative; aspect-ratio: 16/9; }
-        #videoPreview { width: 100%; height: 100%; object-fit: cover; display: block; }
-        .rec-badge { position: absolute; top: 16px; left: 16px; display: none; align-items: center; gap: 8px; background: rgba(0,0,0,0.6); padding: 8px 14px; border-radius: 6px; font-size: 12px; }
-        .rec-badge.on { display: flex; }
-        .rec-dot { width: 8px; height: 8px; background: #ef4444; border-radius: 50%; animation: blink 1s infinite; }
-        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 30px; }
-        .btn { padding: 16px; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+        
+        .video-container { 
+            background: #111; 
+            border-radius: 12px; 
+            overflow: hidden; 
+            margin-bottom: 20px; 
+            position: relative; 
+        }
+        #video { 
+            width: 100%; 
+            display: block;
+            background: #000;
+        }
+        #canvas { display: none; }
+        
+        .rec-indicator { 
+            position: absolute; 
+            top: 16px; 
+            left: 16px; 
+            display: none; 
+            align-items: center; 
+            gap: 8px; 
+            background: rgba(0,0,0,0.8); 
+            padding: 8px 14px; 
+            border-radius: 6px; 
+            font-size: 12px; 
+        }
+        .rec-indicator.active { display: flex; }
+        .rec-dot { 
+            width: 8px; 
+            height: 8px; 
+            background: #ef4444; 
+            border-radius: 50%; 
+            animation: pulse 1s infinite; 
+        }
+        @keyframes pulse { 
+            0%, 100% { opacity: 1; } 
+            50% { opacity: 0.3; } 
+        }
+        
+        .controls { 
+            display: grid; 
+            grid-template-columns: repeat(2, 1fr); 
+            gap: 12px; 
+            margin-bottom: 20px; 
+        }
+        .btn { 
+            padding: 16px; 
+            border: none; 
+            border-radius: 8px; 
+            font-size: 14px; 
+            font-weight: 500; 
+            cursor: pointer; 
+            transition: all 0.2s; 
+        }
         .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-        .btn-start { background: #fff; color: #000; }
-        .btn-start:hover:not(:disabled) { background: #e5e5e5; }
-        .btn-stop { background: #dc2626; color: #fff; }
-        .btn-stop:hover:not(:disabled) { background: #b91c1c; }
-        .card { background: #111; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
-        .card h3 { font-size: 13px; font-weight: 500; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; }
-        .row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #1a1a1a; font-size: 14px; }
-        .row:last-child { border-bottom: none; }
-        input[type="checkbox"] { width: 18px; height: 18px; accent-color: #fff; }
-        .hide { display: none; }
-        .show { display: block; }
-        .tag { font-size: 12px; padding: 4px 10px; border-radius: 4px; background: #1a1a1a; }
-        .tag.ok { background: #166534; color: #22c55e; }
-        .tag.err { background: #7f1d1d; color: #ef4444; }
-        .tag.load { background: #1e3a5f; color: #3b82f6; }
-        .link { display: block; padding: 12px; background: #1a1a1a; border-radius: 6px; margin-bottom: 8px; color: #3b82f6; text-decoration: none; font-size: 13px; word-break: break-all; }
-        .link:hover { background: #222; }
-        .result { margin-top: 20px; padding: 20px; border-radius: 12px; text-align: center; }
-        .result.fire { background: #7f1d1d; border: 1px solid #dc2626; }
-        .result.safe { background: #14532d; border: 1px solid #22c55e; }
-        .result h4 { font-size: 16px; font-weight: 500; margin-bottom: 8px; }
-        .result p { font-size: 13px; color: #999; }
-        .bar { margin-top: 16px; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; }
-        .bar-fill { height: 100%; background: #fff; border-radius: 2px; }
+        .btn-primary { background: #fff; color: #000; }
+        .btn-primary:hover:not(:disabled) { background: #e5e5e5; }
+        .btn-danger { background: #dc2626; color: #fff; }
+        .btn-danger:hover:not(:disabled) { background: #b91c1c; }
+        .btn-success { background: #16a34a; color: #fff; }
+        .btn-success:hover:not(:disabled) { background: #15803d; }
+        .btn-full { grid-column: 1 / -1; }
+        
+        .status-card { 
+            background: #111; 
+            border-radius: 12px; 
+            padding: 20px; 
+            margin-bottom: 20px; 
+        }
+        .status-card h3 { 
+            font-size: 12px; 
+            font-weight: 500; 
+            color: #666; 
+            text-transform: uppercase; 
+            letter-spacing: 0.5px; 
+            margin-bottom: 16px; 
+        }
+        .status-item { 
+            display: flex; 
+            justify-content: space-between; 
+            padding: 10px 0; 
+            border-bottom: 1px solid #1a1a1a; 
+            font-size: 14px; 
+        }
+        .status-item:last-child { border-bottom: none; }
+        .status-label { color: #999; }
+        .status-value { font-weight: 500; }
+        
+        .badge { 
+            display: inline-block;
+            padding: 4px 10px; 
+            border-radius: 4px; 
+            font-size: 12px; 
+            font-weight: 500;
+        }
+        .badge-success { background: #166534; color: #22c55e; }
+        .badge-error { background: #7f1d1d; color: #ef4444; }
+        .badge-info { background: #1e3a5f; color: #3b82f6; }
+        .badge-gray { background: #1a1a1a; color: #666; }
+        
+        .result-box { 
+            padding: 24px; 
+            border-radius: 12px; 
+            text-align: center; 
+            margin-top: 20px;
+        }
+        .result-box.fire { 
+            background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%); 
+            border: 1px solid #dc2626; 
+        }
+        .result-box.safe { 
+            background: linear-gradient(135deg, #14532d 0%, #166534 100%); 
+            border: 1px solid #22c55e; 
+        }
+        .result-box h2 { font-size: 24px; margin-bottom: 8px; }
+        .result-box p { font-size: 14px; color: rgba(255,255,255,0.8); }
+        
+        .hidden { display: none; }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>Captura de Camara</h1>
-            <a href="/dashboard" class="back-link">Dashboard</a>
+            <h1>🔥 Detección de Incendios - Cámara</h1>
+            <a href="/dashboard" class="back-link">← Dashboard</a>
         </header>
-        <div class="video-box">
-            <video id="videoPreview" autoplay playsinline muted></video>
-            <div class="rec-badge" id="recBadge"><span class="rec-dot"></span><span>REC</span></div>
+
+        <div class="video-container">
+            <video id="video" autoplay playsinline muted></video>
+            <canvas id="canvas"></canvas>
+            <div class="rec-indicator" id="recIndicator">
+                <span class="rec-dot"></span>
+                <span>GRABANDO</span>
+            </div>
         </div>
+
         <div class="controls">
-            <button class="btn btn-start" id="btnStart" onclick="startCam()">Iniciar Camara</button>
-            <button class="btn btn-stop" id="btnStop" onclick="stopCam()" disabled>Detener y Subir</button>
+            <button class="btn btn-primary" id="startBtn" onclick="startRecording()">
+                Iniciar Grabación
+            </button>
+            <button class="btn btn-danger" id="stopBtn" onclick="stopRecording()" disabled>
+                Detener y Analizar
+            </button>
         </div>
-        <div class="card">
-            <h3>Opciones</h3>
-            <div class="row"><label>Foto</label><input type="checkbox" id="optPhoto" checked></div>
-            <div class="row"><label>Video</label><input type="checkbox" id="optVideo" checked></div>
-            <div class="row"><label>Audio</label><input type="checkbox" id="optAudio" checked></div>
+
+        <div class="status-card">
+            <h3>Estado de Captura</h3>
+            <div class="status-item">
+                <span class="status-label">Foto</span>
+                <span class="status-value" id="photoStatus">
+                    <span class="badge badge-gray">Pendiente</span>
+                </span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Video</span>
+                <span class="status-value" id="videoStatus">
+                    <span class="badge badge-gray">Pendiente</span>
+                </span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Audio</span>
+                <span class="status-value" id="audioStatus">
+                    <span class="badge badge-gray">Pendiente</span>
+                </span>
+            </div>
         </div>
-        <div class="card hide" id="progCard">
-            <h3>Progreso</h3>
-            <div class="row" id="pPhoto"><span>Foto</span><span class="tag" id="tPhoto">-</span></div>
-            <div class="row" id="pVideo"><span>Video</span><span class="tag" id="tVideo">-</span></div>
-            <div class="row" id="pAudio"><span>Audio</span><span class="tag" id="tAudio">-</span></div>
-            <div class="row"><span>Analisis IA</span><span class="tag" id="tAI">-</span></div>
-        </div>
-        <div class="card hide" id="resCard">
-            <h3>Resultados</h3>
-            <div id="links"></div>
-            <div class="result" id="resBox"></div>
-        </div>
+
+        <div id="resultContainer"></div>
     </div>
+
     <script>
-        let stream=null, mRec=null, aRec=null, vChunks=[], aChunks=[];
-        let photoB=null, videoB=null, audioB=null;
+        let video = document.getElementById('video');
+        let canvas = document.getElementById('canvas');
+        let mediaRecorder = null;
+        let audioRecorder = null;
+        let videoChunks = [];
+        let audioChunks = [];
+        let stream = null;
+        let audioStream = null;
 
-        async function startCam() {
+        // Iniciar cámara al cargar
+        async function initCamera() {
             try {
-                stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1280},height:{ideal:720}},audio:true});
-                document.getElementById('videoPreview').srcObject = stream;
-                if(document.getElementById('optVideo').checked){
-                    const vT=stream.getVideoTracks()[0], aT=stream.getAudioTracks()[0];
-                    const rs=new MediaStream([vT,aT]);
-                    mRec=new MediaRecorder(rs,{mimeType:'video/webm'});
-                    mRec.ondataavailable=e=>{if(e.data.size>0)vChunks.push(e.data);};
-                    mRec.start();
-                }
-                if(document.getElementById('optAudio').checked){
-                    const aT=stream.getAudioTracks()[0];
-                    if(aT){const as=new MediaStream([aT]);aRec=new MediaRecorder(as,{mimeType:'audio/webm'});aRec.ondataavailable=e=>{if(e.data.size>0)aChunks.push(e.data);};aRec.start();}
-                }
-                document.getElementById('btnStart').disabled=true;
-                document.getElementById('btnStop').disabled=false;
-                document.getElementById('recBadge').classList.add('on');
-            } catch(e){alert('Error: '+e.message);}
-        }
-
-        async function stopCam() {
-            document.getElementById('progCard').classList.remove('hide');
-            document.getElementById('resCard').classList.add('hide');
-            if(document.getElementById('optPhoto').checked&&stream){
-                const v=document.getElementById('videoPreview'),c=document.createElement('canvas');
-                c.width=v.videoWidth;c.height=v.videoHeight;c.getContext('2d').drawImage(v,0,0);
-                photoB=await new Promise(r=>c.toBlob(r,'image/jpeg',0.9));
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { width: 1280, height: 720 }, 
+                    audio: false 
+                });
+                video.srcObject = stream;
+                console.log('✅ Cámara iniciada');
+            } catch (error) {
+                console.error('❌ Error al acceder a la cámara:', error);
+                alert('Error: No se puede acceder a la cámara. Verifica los permisos.');
             }
-            if(mRec&&mRec.state!=='inactive'){mRec.stop();await new Promise(r=>{mRec.onstop=r;});videoB=new Blob(vChunks,{type:'video/webm'});}
-            if(aRec&&aRec.state!=='inactive'){aRec.stop();await new Promise(r=>{aRec.onstop=r;});audioB=new Blob(aChunks,{type:'audio/webm'});}
-            if(stream)stream.getTracks().forEach(t=>t.stop());
-            document.getElementById('btnStart').disabled=false;
-            document.getElementById('btnStop').disabled=true;
-            document.getElementById('recBadge').classList.remove('on');
-            await upload();
         }
 
-        async function upload() {
-            const r={photo_url:null,photo_gcs_uri:null,video_url:null,video_gcs_uri:null,audio_url:null};
-            if(photoB){
-                setT('tPhoto','load','Subiendo');
-                try{const fd=new FormData();fd.append('photo',photoB,'c.jpg');const res=await fetch('/upload/photo',{method:'POST',body:fd});const d=await res.json();
-                if(d.success){r.photo_url=d.url;r.photo_gcs_uri=d.gcs_uri;setT('tPhoto','ok','OK');}else{setT('tPhoto','err','Error');}}
-                catch(e){setT('tPhoto','err','Error');}
-            }else{document.getElementById('pPhoto').style.display='none';}
-            if(videoB){
-                setT('tVideo','load','Subiendo');
-                try{const fd=new FormData();fd.append('video',videoB,'c.webm');const res=await fetch('/upload/video',{method:'POST',body:fd});const d=await res.json();
-                if(d.success){r.video_url=d.url;r.video_gcs_uri=d.gcs_uri;setT('tVideo','ok','OK');}else{setT('tVideo','err','Error');}}
-                catch(e){setT('tVideo','err','Error');}
-            }else{document.getElementById('pVideo').style.display='none';}
-            if(audioB){
-                setT('tAudio','load','Subiendo');
-                try{const fd=new FormData();fd.append('audio',audioB,'c.webm');const res=await fetch('/upload/audio',{method:'POST',body:fd});const d=await res.json();
-                if(d.success){r.audio_url=d.url;setT('tAudio','ok','OK');}else{setT('tAudio','err','Error');}}
-                catch(e){setT('tAudio','err','Error');}
-            }else{document.getElementById('pAudio').style.display='none';}
-            setT('tAI','load','Analizando');
-            try{const res=await fetch('/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(r)});const d=await res.json();setT('tAI','ok','OK');showRes(r,d);}
-            catch(e){setT('tAI','err','Error');showRes(r,null);}
-            vChunks=[];aChunks=[];photoB=null;videoB=null;audioB=null;stream=null;mRec=null;aRec=null;
+        async function startRecording() {
+            try {
+                videoChunks = [];
+                audioChunks = [];
+
+                // Iniciar grabación de video
+                mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8' });
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data && e.data.size > 0) {
+                        videoChunks.push(e.data);
+                    }
+                };
+                mediaRecorder.start();
+                console.log('🎥 Grabación de video iniciada');
+
+                // Iniciar grabación de audio separada
+                audioStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                audioRecorder = new MediaRecorder(audioStream, { mimeType: 'audio/webm' });
+                audioRecorder.ondataavailable = (e) => {
+                    if (e.data && e.data.size > 0) {
+                        audioChunks.push(e.data);
+                    }
+                };
+                audioRecorder.start();
+                console.log('🎤 Grabación de audio iniciada');
+
+                // UI
+                document.getElementById('startBtn').disabled = true;
+                document.getElementById('stopBtn').disabled = false;
+                document.getElementById('recIndicator').classList.add('active');
+
+                updateStatus('photoStatus', 'info', 'Esperando...');
+                updateStatus('videoStatus', 'info', 'Grabando...');
+                updateStatus('audioStatus', 'info', 'Grabando...');
+
+            } catch (error) {
+                console.error('❌ Error al iniciar grabación:', error);
+                alert('Error al iniciar la grabación: ' + error.message);
+            }
         }
 
-        function setT(id,c,t){const e=document.getElementById(id);e.className='tag '+c;e.textContent=t;}
+        async function stopRecording() {
+            console.log('⏹️ Deteniendo grabación...');
 
-        function showRes(f,a){
-            document.getElementById('resCard').classList.remove('hide');
-            let h='';
-            if(f.photo_url)h+='<a href="'+f.photo_url+'" target="_blank" class="link">Foto</a>';
-            if(f.video_url)h+='<a href="'+f.video_url+'" target="_blank" class="link">Video</a>';
-            if(f.audio_url)h+='<a href="'+f.audio_url+'" target="_blank" class="link">Audio</a>';
-            document.getElementById('links').innerHTML=h||'<p style="color:#666;font-size:13px;">Sin archivos</p>';
-            const b=document.getElementById('resBox');
-            if(a&&a.success!==false){
-                const fire=a.fire_detected,conf=(a.confidence*100).toFixed(1);
-                b.className='result '+(fire?'fire':'safe');
-                b.innerHTML='<h4>'+(fire?'Fuego Detectado':'Sin Fuego')+'</h4><p>Confianza: '+conf+'%</p><div class="bar"><div class="bar-fill" style="width:'+conf+'%"></div></div>';
-            }else{b.className='result';b.innerHTML='<h4>Error en analisis</h4>';}
+            // Desactivar botones
+            document.getElementById('stopBtn').disabled = true;
+            document.getElementById('recIndicator').classList.remove('active');
+
+            // Capturar foto
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            // Detener grabaciones
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+            if (audioRecorder && audioRecorder.state !== 'inactive') {
+                audioRecorder.stop();
+            }
+
+            // Esperar a que terminen las grabaciones
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            // Procesar y subir archivos
+            await uploadAndAnalyze();
         }
+
+        async function uploadAndAnalyze() {
+            try {
+                updateStatus('photoStatus', 'info', 'Subiendo...');
+                updateStatus('videoStatus', 'info', 'Subiendo...');
+                updateStatus('audioStatus', 'info', 'Subiendo...');
+
+                // 1. SUBIR FOTO
+                const photoBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9));
+                console.log(`📸 Foto capturada: ${photoBlob.size} bytes`);
+                
+                const photoFormData = new FormData();
+                photoFormData.append('photo', photoBlob, 'capture.jpg');
+                
+                const photoRes = await fetch('/upload/photo', {
+                    method: 'POST',
+                    body: photoFormData
+                });
+                const photoData = await photoRes.json();
+                console.log('📸 Foto subida:', photoData);
+                
+                if (photoData.success) {
+                    updateStatus('photoStatus', 'success', '✓ Subida');
+                } else {
+                    updateStatus('photoStatus', 'error', '✗ Error');
+                }
+
+                // 2. SUBIR VIDEO
+                const videoBlob = new Blob(videoChunks, { type: 'video/webm' });
+                console.log(`🎥 Video capturado: ${videoBlob.size} bytes`);
+                
+                const videoFormData = new FormData();
+                videoFormData.append('video', videoBlob, 'capture.webm');
+                
+                const videoRes = await fetch('/upload/video', {
+                    method: 'POST',
+                    body: videoFormData
+                });
+                const videoData = await videoRes.json();
+                console.log('🎥 Video subido:', videoData);
+                
+                if (videoData.success) {
+                    updateStatus('videoStatus', 'success', '✓ Subida');
+                } else {
+                    updateStatus('videoStatus', 'error', '✗ Error');
+                }
+
+                // 3. SUBIR AUDIO
+                const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                console.log(`🎤 Audio capturado: ${audioBlob.size} bytes`);
+                
+                const audioFormData = new FormData();
+                audioFormData.append('audio', audioBlob, 'capture.webm');
+                
+                const audioRes = await fetch('/upload/audio', {
+                    method: 'POST',
+                    body: audioFormData
+                });
+                const audioData = await audioRes.json();
+                console.log('🎤 Audio subido:', audioData);
+                
+                if (audioData.success) {
+                    updateStatus('audioStatus', 'success', '✓ Subida');
+                } else {
+                    updateStatus('audioStatus', 'error', '✗ Error');
+                }
+
+                // 4. ANALIZAR CON VERTEX AI
+                console.log('🔥 Analizando con Vertex AI...');
+                const analyzeRes = await fetch('/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        photo_url: photoData.url,
+                        photo_gcs_uri: photoData.gcs_uri,
+                        video_url: videoData.url,
+                        video_gcs_uri: videoData.gcs_uri,
+                        audio_url: audioData.url
+                    })
+                });
+
+                const analyzeData = await analyzeRes.json();
+                console.log('🔥 Resultado del análisis:', analyzeData);
+
+                // Mostrar resultado
+                showResult(analyzeData);
+
+                // Limpiar y reiniciar
+                if (audioStream) {
+                    audioStream.getTracks().forEach(track => track.stop());
+                }
+                
+                videoChunks = [];
+                audioChunks = [];
+                
+                document.getElementById('startBtn').disabled = false;
+
+            } catch (error) {
+                console.error('❌ Error en upload/análisis:', error);
+                alert('Error: ' + error.message);
+                
+                updateStatus('photoStatus', 'error', '✗ Error');
+                updateStatus('videoStatus', 'error', '✗ Error');
+                updateStatus('audioStatus', 'error', '✗ Error');
+                
+                document.getElementById('startBtn').disabled = false;
+            }
+        }
+
+        function updateStatus(elementId, type, text) {
+            const badgeClass = {
+                'success': 'badge-success',
+                'error': 'badge-error',
+                'info': 'badge-info',
+                'gray': 'badge-gray'
+            }[type] || 'badge-gray';
+            
+            document.getElementById(elementId).innerHTML = 
+                `<span class="badge ${badgeClass}">${text}</span>`;
+        }
+
+        function showResult(data) {
+            const container = document.getElementById('resultContainer');
+            
+            if (data.fire_detected) {
+                const confidence = (data.confidence * 100).toFixed(1);
+                container.innerHTML = `
+                    <div class="result-box fire">
+                        <h2>🔥 FUEGO DETECTADO</h2>
+                        <p>Confianza: ${confidence}%</p>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = `
+                    <div class="result-box safe">
+                        <h2>✓ Sin Fuego</h2>
+                        <p>No se detectaron signos de incendio</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Iniciar cámara al cargar la página
+        window.addEventListener('load', initCamera);
     </script>
 </body>
 </html>
