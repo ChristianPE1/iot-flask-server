@@ -1,27 +1,30 @@
 # Sistema IoT de Deteccion de Incendios con IA
 
-Sistema de monitoreo IoT inteligente que combina sensores Arduino, captura automatica de multimedia desde dispositivos moviles y analisis con Inteligencia Artificial para detectar incendios en tiempo real.
+Sistema de monitoreo IoT inteligente **completamente automático** que combina sensores Arduino, captura automática de multimedia desde IP Webcam (Android) vía ngrok, y análisis con Inteligencia Artificial para detectar incendios en tiempo real sin intervención manual.
 
 ## Equipo de Desarrollo
 
-- **Christian Pardave Espinoza**
-- **Berly Diaz Castro**
-- **Diego Apaza Andaluz**
-- **Merisabel Ruelas Quenaya**
-- **Yanira Suni Quispe**
-- **Joselyn Quispe Huanca**
+- **Christian Pardave Espinoza** - Porcentaje de aporte [18%]
+- **Berly Diaz Castro** - Porcentaje de aporte [18%]
+- **Diego Apaza Andaluz** - Porcentaje de aporte [16%]
+- **Merisabel Ruelas Quenaya** - Porcentaje de aporte [16%]
+- **Yanira Suni Quispe** - Porcentaje de aporte [16%]
+- **Joselyn Quispe Huanca** - Porcentaje de aporte [16%]
 
 ## Características Principales
 
 - **API REST** para recepción de alertas desde sensores Arduino
-- **Sistema de cámara inteligente** que se activa automáticamente con alertas
-- **Captura multimedia automática** (foto, video, audio) desde dispositivos móviles
+- **Captura multimedia automática** desde IP Webcam (Android) vía ngrok
+- **Sistema completamente automático** - no requiere intervención manual
 - **Procesamiento con IA** mediante Google Vertex AI para detección de fuego/humo
-- **Notificaciones push** en tiempo real al celular
+- **Captura simultánea** de foto (JPG), video (MJPEG) y audio (WAV)
 - **Almacenamiento en la nube** con Google Cloud Storage
+- **Análisis automático** de multimedia con IA al recibir alertas
+- **Throttling inteligente** (60s cooldown) para evitar spam de capturas
 - **Historial de alertas** con análisis de IA incluido
 - **Interfaz web moderna** para monitoreo en tiempo real
 - **Integración con n8n** para envío automático de correos electrónicos
+- **Sistema de túnel seguro** con ngrok para acceso remoto
 
 ## Tecnologías Utilizadas
 
@@ -32,11 +35,11 @@ Sistema de monitoreo IoT inteligente que combina sensores Arduino, captura autom
   - Cloud Storage (almacenamiento)
   - Vertex AI (análisis de IA)
 - **Arduino** - Sensores IoT
+- **ngrok** - Túnel seguro para acceso remoto a IP Webcam
 
-### Frontend
-- **HTML5/CSS3** - Interfaz web moderna
-- **JavaScript** - Captura multimedia y notificaciones
-- **MediaRecorder API** - Grabación de video/audio
+### Dispositivos Móviles
+- **IP Webcam (Android)** - Servidor de cámara local
+- **Captura automática** desde endpoints: `/photo.jpg`, `/video`, `/audio.wav`
 
 ### Integraciones
 - **n8n** - Automatización de workflows y envío de emails
@@ -52,7 +55,8 @@ Sistema de monitoreo IoT inteligente que combina sensores Arduino, captura autom
 - Python 3.11+
 - Cuenta de Google Cloud Platform
 - Arduino con sensores de temperatura y luz
-- Dispositivo móvil con navegador moderno
+- **Dispositivo Android con IP Webcam** (app gratuita)
+- **ngrok** (para túnel seguro)
 - n8n (para automatización de emails)
 
 ## Instalación Local
@@ -81,7 +85,7 @@ Sistema de monitoreo IoT inteligente que combina sensores Arduino, captura autom
    VERTEX_AI_ENDPOINT=https://REGION-aiplatform.googleapis.com/v1/projects/tu-vertex-project-id/locations/REGION/endpoints/tu-endpoint-id:predict
    ALERT_EMAIL=tu-email@ejemplo.com
    APP_URL=https://tu-app.appspot.com
-   N8N_WEBHOOK_ALERT=https://tu-n8n-instance/webhook/send-alerta
+   PHONE_IP=https://tu-ngrok-url.ngrok-free.dev
    N8N_WEBHOOK_RESULT=https://tu-n8n-instance/webhook/send-result
    ```
 
@@ -91,6 +95,35 @@ Sistema de monitoreo IoT inteligente que combina sensores Arduino, captura autom
    ```
 
    El servidor estará disponible en: `http://localhost:5000`
+
+## Configuración de IP Webcam y ngrok
+
+### 1. Instalar IP Webcam (Android)
+1. Descargar e instalar **IP Webcam** desde Google Play Store
+2. Abrir la app y configurar:
+   - Puerto: `8080` (predeterminado)
+   - Activar servidor web
+3. Anotar la IP local (ej: `192.168.1.100:8080`)
+
+### 2. Instalar y configurar ngrok
+1. Descargar ngrok desde https://ngrok.com
+2. Crear túnel:
+   ```bash
+   ngrok http http://192.168.1.100:8080
+   ```
+3. Copiar la URL HTTPS generada (ej: `https://abc123.ngrok-free.dev`)
+
+### 3. Verificar conexión
+```bash
+# Probar foto
+curl -I https://tu-ngrok-url.ngrok-free.dev/photo.jpg
+
+# Probar video
+curl -I https://tu-ngrok-url.ngrok-free.dev/video
+
+# Probar audio
+curl -I https://tu-ngrok-url.ngrok-free.dev/audio.wav
+```
 
 ## Despliegue en Producción
 
@@ -109,7 +142,7 @@ Sistema de monitoreo IoT inteligente que combina sensores Arduino, captura autom
      VERTEX_AI_ENDPOINT: "https://REGION-aiplatform.googleapis.com/v1/projects/tu-vertex-project-id/locations/REGION/endpoints/tu-endpoint-id:predict"
      ALERT_EMAIL: "tu-email@ejemplo.com"
      APP_URL: "https://tu-app.appspot.com"
-     N8N_WEBHOOK_ALERT: "https://tu-n8n-instance/webhook/send-alerta"
+     PHONE_IP: "https://tu-ngrok-url.ngrok-free.dev"
      N8N_WEBHOOK_RESULT: "https://tu-n8n-instance/webhook/send-result"
    ```
 
@@ -142,6 +175,12 @@ https://tu-app.appspot.com/alert
 **Umbrales configurados**:
 - Temperatura: > 30.0°C
 - Nivel de luz: > 400
+- **Throttling**: 60 segundos entre capturas automáticas
+
+### Sistema de Throttling
+- **Cooldown de 60 segundos** entre alertas automáticas
+- Evita spam de emails y sobrecarga del sistema
+- Solo permite una captura multimedia cada minuto
 
 ## API Endpoints
 
@@ -165,22 +204,36 @@ https://tu-app.appspot.com/alert
 
 ## Flujo de Funcionamiento
 
-1. **Arduino detecta anomalía** → Envía alerta con temperatura/luz
-2. **Sistema envía email** → Notificación para abrir cámara
-3. **Usuario abre cámara** → Captura foto/video/audio automáticamente
-4. **Vertex AI analiza** → Detecta presencia de fuego/humo
-5. **Sistema envía resultado** → Email con confirmación o falsa alarma
-6. **Dashboard actualiza** → Historial con análisis completo
+### Sistema Completamente Automático
+
+1. **Arduino detecta anomalía** → Envía alerta con temperatura/luz (>30°C y >400 luz)
+2. **Sistema recibe alerta** → Verifica throttling (60s cooldown)
+3. **Captura automática inicia** → Foto (JPG), Video (5s MJPEG), Audio (5s WAV)
+4. **Archivos subidos a Cloud Storage** → Google Cloud Storage bucket
+5. **Vertex AI analiza automáticamente** → Detecta presencia de fuego/humo
+6. **Email de resultado enviado** → Confirmación o falsa alarma vía n8n
+7. **Dashboard actualiza** → Historial con análisis completo y enlaces a archivos
+
+### Endpoints de IP Webcam utilizados:
+- `https://ngrok-url.ngrok-free.dev/photo.jpg` - Captura de imagen
+- `https://ngrok-url.ngrok-free.dev/video` - Stream de video MJPEG
+- `https://ngrok-url.ngrok-free.dev/audio.wav` - Stream de audio WAV
+
+### Protección contra spam:
+- **Throttling de 60 segundos** entre capturas automáticas
+- Evita múltiples emails y sobrecarga del sistema
 
 ## Estructura del Proyecto
 
 ```
 proyecto-iot/
 ├── api-iot/                    # Backend Flask
-│   ├── server.py              # Servidor principal
+│   ├── server.py              # Servidor principal con captura automática
 │   ├── main.py               # Punto de entrada App Engine
 │   ├── requirements.txt      # Dependencias Python
 │   ├── app.yaml              # Configuración App Engine
+│   ├── start-ngrok.sh        # Script para iniciar túnel ngrok
+│   ├── CONEXION_CONFIRMADA.md # Documentación de configuración verificada
 │   ├── .env                  # Variables de entorno
 │   └── templates/            # Plantillas HTML
 │       ├── index.html
@@ -188,9 +241,6 @@ proyecto-iot/
 │       └── camera.html
 ├── arduino/                   # Código Arduino
 │   └── codigoarduino.ino
-├── email-templates/          # Templates de email
-│   ├── email_alerta.html
-│   └── email_confirmacion.html
 ├── docs/                     # Documentación
 │   ├── CONFIGURACION_N8N.md
 │   └── INSTRUCCIONES_PARA_COMPANERO.md
@@ -240,6 +290,15 @@ https://storage.googleapis.com/tu-bucket-name/audio/
 
 ## Pruebas
 
+### Prueba de Conexión ngrok
+```bash
+# Verificar que ngrok esté funcionando
+curl -I https://tu-ngrok-url.ngrok-free.dev/photo.jpg
+
+# Probar captura automática
+curl -X POST https://tu-app.appspot.com/api/test-alert
+```
+
 ### Prueba de Alertas
 ```bash
 # Simular alerta desde Arduino
@@ -248,12 +307,16 @@ curl -X POST https://tu-app.appspot.com/alert \
   -d '{"temp": 45.5, "light": 850, "status": "alert"}'
 ```
 
-### Prueba de Webhooks
+### Verificación de Archivos
 ```bash
-# Probar webhook de alerta
-curl -X POST "https://tu-n8n-instance/webhook/send-alerta" \
-  -H "Content-Type: application/json" \
-  -d '{"timestamp": "2025-12-19 12:30:45", "temperature": 45.5, "light": 850}'
+# Ver fotos capturadas
+gcloud storage ls gs://tu-bucket-name/photos/
+
+# Ver videos capturados
+gcloud storage ls gs://tu-bucket-name/videos/
+
+# Ver audio capturado
+gcloud storage ls gs://tu-bucket-name/audio/
 ```
 
 
@@ -262,6 +325,49 @@ curl -X POST "https://tu-n8n-instance/webhook/send-alerta" \
 - **Dashboard en tiempo real**: `https://tu-app.appspot.com/dashboard`
 - **Logs de App Engine**: `gcloud app logs tail -s default`
 - **Monitoreo de bucket**: `gsutil ls gs://tu-bucket-name/**`
+
+### Troubleshooting
+
+#### Problemas con ngrok
+```bash
+# Verificar si ngrok está corriendo
+ps aux | grep ngrok
+
+# Reiniciar túnel ngrok
+./start-ngrok.sh
+
+# Verificar conectividad
+curl -I https://tu-ngrok-url.ngrok-free.dev/photo.jpg
+```
+
+#### Problemas de captura
+```bash
+# Ver logs de captura
+gcloud app logs tail -s default | grep "PHOTO\|VIDEO\|AUDIO"
+
+# Probar endpoint manualmente
+curl -X POST https://tu-app.appspot.com/api/test-alert
+```
+
+#### URL de ngrok expirada
+1. Reiniciar ngrok: `./start-ngrok.sh`
+2. Obtener nueva URL
+3. Actualizar `app.yaml` con nueva URL
+4. Re-desplegar: `gcloud app deploy --quiet`
+
+## URL de ngrok
+
+**La URL de ngrok cambia cada vez que se reinicia el túnel.** Si ngrok se detiene o reinicia:
+
+1. **Ejecutar**: `./start-ngrok.sh`
+2. **Copiar nueva URL** (ej: `https://nueva-url.ngrok-free.dev`)
+3. **Actualizar `app.yaml`**:
+   ```yaml
+   PHONE_IP: "https://nueva-url.ngrok-free.dev"
+   ```
+4. **Re-desplegar**: `gcloud app deploy --quiet`
+
+**Sin esto, el sistema no podrá capturar multimedia automáticamente.**
 
 ## Contribución
 

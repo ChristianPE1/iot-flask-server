@@ -16,6 +16,10 @@ from google.oauth2 import service_account
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
+# Suprimir warnings de SSL para ngrok
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 # Cargar variables de entorno
 load_dotenv()
 
@@ -29,8 +33,12 @@ VERTEX_AI_ENDPOINT = os.getenv('VERTEX_AI_ENDPOINT', 'https://southamerica-east1
 ALERT_EMAIL = os.getenv('ALERT_EMAIL', 'cpardave@unsa.edu.pe')
 APP_URL = os.getenv('APP_URL', 'https://project-iot-481620.ue.r.appspot.com')
 
-# N8N Webhooks - PRODUCCIÓN
-N8N_WEBHOOK_ALERT = 'https://christiantestcloud.app.n8n.cloud/webhook/send-alerta'  # Email: "ABRE LA CÁMARA"
+# IP Webcam - Captura automática desde celular
+PHONE_IP = os.getenv('PHONE_IP', 'https://populationless-amada-unobservedly.ngrok-free.dev')  # URL pública de ngrok
+CAPTURE_VIDEO = True   # Si capturar video
+CAPTURE_AUDIO = True   # Si capturar audio
+VIDEO_DURATION = 5     # Duración en segundos
+
 N8N_WEBHOOK_RESULT = 'https://christiantestcloud.app.n8n.cloud/webhook/send-result'  # Email: "Resultado de verificación"
 
 # Cliente de autenticación
@@ -72,6 +80,222 @@ def get_auth_token():
 # Historial
 alertas = []
 analysis_history = []
+
+# Control de throttling para alertas (evitar spam de emails)
+last_alert_time = 0
+ALERT_COOLDOWN_SECONDS = 60  # Solo enviar un email cada 60 segundos
+
+# ============================================
+# FUNCIONES DE CAPTURA DESDE IP WEBCAM
+# ============================================
+
+def capture_photo_from_phone():
+    """Captura foto desde IP Webcam"""
+    try:
+        print("   [PHOTO] Capturando desde IP Webcam...")
+        url = f"{PHONE_IP}/photo.jpg"
+        
+        response = requests.get(url, timeout=10, verify=False)  # verify=False para ngrok
+        if response.status_code == 200:
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            blob_name = f"photos/photo_{timestamp}.jpg"
+            
+            # Subir directamente a Cloud Storage
+            public_url, gcs_uri = upload_bytes_to_cloud_storage(
+                response.content,
+                blob_name,
+                'image/jpeg'
+            )
+            
+            print(f"   [PHOTO] ✓ Capturada y subida: {public_url}")
+            return public_url, gcs_uri
+        else:
+            print(f"   [PHOTO] ✗ Error {response.status_code}")
+            return None, None
+            
+    except Exception as e:
+        print(f"   [PHOTO ERROR] {e}")
+        return None, None
+
+def capture_video_from_phone(duration=5):
+    """Captura video desde IP Webcam (MJPEG stream)"""
+    try:
+        print(f"   [VIDEO] Capturando {duration}s desde IP Webcam...")
+        url = f"{PHONE_IP}/video"
+        
+        response = requests.get(url, stream=True, timeout=15, verify=False)  # verify=False para ngrok
+        start_time = time.time()
+        
+        video_data = bytearray()
+        
+        for chunk in response.iter_content(chunk_size=8192):
+            if chunk:
+                video_data.extend(chunk)
+            if time.time() - start_time >= duration:
+                break
+        
+        if len(video_data) > 0:
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            blob_name = f"videos/video_{timestamp}.mjpeg"
+            
+            # Subir a Cloud Storage (el formato MJPEG es soportado por Vertex AI)
+            public_url, gcs_uri = upload_bytes_to_cloud_storage(
+                bytes(video_data),
+                blob_name,
+                'video/x-motion-jpeg'
+            )
+            
+            print(f"   [VIDEO] ✓ Capturado y subido: {public_url}")
+            return public_url, gcs_uri
+        else:
+            print("   [VIDEO] ✗ No se capturó data")
+            return None, None
+            
+    except Exception as e:
+        print(f"   [VIDEO ERROR] {e}")
+        return None, None
+
+def capture_audio_from_phone(duration=5):
+    """Captura audio desde IP Webcam"""
+    try:
+        print(f"   [AUDIO] Capturando {duration}s desde IP Webcam...")
+        url = f"{PHONE_IP}/audio.wav"
+        
+        response = requests.get(url, stream=True, timeout=15, verify=False)  # verify=False para ngrok
+        start_time = time.time()
+        
+        audio_data = bytearray()
+        
+        for chunk in response.iter_content(chunk_size=8192):
+            if chunk:
+                audio_data.extend(chunk)
+            if time.time() - start_time >= duration:
+                break
+        
+        if len(audio_data) > 0:
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            blob_name = f"audio/audio_{timestamp}.wav"
+            
+            # Subir a Cloud Storage
+            public_url, gcs_uri = upload_bytes_to_cloud_storage(
+                bytes(audio_data),
+                blob_name,
+                'audio/wav'
+            )
+            
+            print(f"   [AUDIO] ✓ Capturado y subido: {public_url}")
+            return public_url, gcs_uri
+        else:
+            print("   [AUDIO] ✗ No se capturó data")
+            return None, None
+            
+    except Exception as e:
+        print(f"   [AUDIO ERROR] {e}")
+        return None, None
+
+def process_alert_with_capture():
+    """
+    Función principal: captura foto, video y audio automáticamente,
+    analiza con Vertex AI y envía email de resultado
+    """
+    try:
+        print("\nPROCESANDO ALERTA - CAPTURA AUTOMÁTICA")
+        
+        # 1. Capturar multimedia desde el celular
+        photo_url, photo_gcs = capture_photo_from_phone()
+        
+        video_url, video_gcs = None, None
+        if CAPTURE_VIDEO:
+            video_url, video_gcs = capture_video_from_phone(VIDEO_DURATION)
+        
+        audio_url, audio_gcs = None, None
+        if CAPTURE_AUDIO:
+            audio_url, audio_gcs = capture_audio_from_phone(VIDEO_DURATION)
+        
+        # 2. Analizar con Vertex AI
+        results = {
+            "timestamp": datetime.now().isoformat(),
+            "photo_analysis": None,
+            "video_analysis": None,
+            "fire_detected": False,
+            "confidence": 0.0
+        }
+        
+        files_info = {}
+        
+        # Analizar foto
+        if photo_gcs:
+            print(f"\n[VERTEX AI] Analizando foto...")
+            photo_result = predict_image_from_gcs(photo_gcs)
+            results["photo_analysis"] = photo_result
+            files_info["photo"] = photo_url
+            
+            if photo_result.get('fire_detected'):
+                results["fire_detected"] = True
+                results["confidence"] = max(results["confidence"], photo_result.get('confidence', 0))
+        
+        # Analizar video
+        if video_gcs:
+            print(f"\n[VERTEX AI] Analizando video...")
+            video_result = predict_video_from_gcs(video_gcs)
+            results["video_analysis"] = video_result
+            files_info["video"] = video_url
+            
+            if video_result.get('fire_detected'):
+                results["fire_detected"] = True
+                results["confidence"] = max(results["confidence"], video_result.get('confidence', 0))
+        
+        if audio_url:
+            files_info["audio"] = audio_url
+        
+        # 3. Guardar en historial
+        record = {
+            "id": len(analysis_history) + 1,
+            "timestamp": results["timestamp"],
+            "files": files_info,
+            "fire_detected": results["fire_detected"],
+            "confidence": results["confidence"],
+            "photo_analysis": results["photo_analysis"],
+            "video_analysis": results["video_analysis"]
+        }
+        analysis_history.append(record)
+        
+        # 4. Enviar email de RESULTADO
+        if results["fire_detected"]:
+            status_text = "INCENDIO CONFIRMADO"
+            status_bg_color = "#dc2626"  # Rojo
+            user_response = f"Vertex AI detectó fuego con {results['confidence']:.1%} de Precisión"
+            print(f"\n[RESULTADO] 🔥 FUEGO DETECTADO - Precisión: {results['confidence']:.1%}")
+        else:
+            status_text = "FALSA ALARMA"
+            status_bg_color = "#22c55e"  # Verde
+            user_response = f"Vertex AI no detectó fuego (Precisión: {results['confidence']:.1%})"
+            print(f"\n[RESULTADO] ✅ SIN FUEGO - Precisión: {results['confidence']:.1%}")
+        
+        result_data = {
+            "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            "user_confirmed": results["fire_detected"],
+            "is_false_alarm": not results["fire_detected"],
+            "status_text": status_text,
+            "status_bg_color": status_bg_color,
+            "user_response": user_response,
+            "photo_url": files_info.get("photo", ""),
+            "video_url": files_info.get("video", ""),
+            "audio_url": files_info.get("audio", ""),
+            "dashboard_url": f"{APP_URL}/dashboard"
+        }
+        
+        send_n8n_result(result_data)
+        
+        print("="*60 + "\n")
+        
+        return results
+        
+    except Exception as e:
+        print(f"\n[PROCESS ERROR] {e}")
+        import traceback
+        traceback.print_exc()
+        return None
 
 # ============================================
 # FUNCIONES CLOUD STORAGE
@@ -277,24 +501,6 @@ def process_vertex_response(result):
 # FUNCIONES EMAIL (Gmail API) Y N8N
 # ============================================
 
-def send_n8n_alert(alert_data):
-    """Enviar alerta INICIAL a n8n webhook (email: ABRE LA CÁMARA)"""
-    try:
-        response = requests.post(
-            N8N_WEBHOOK_ALERT,
-            json=alert_data,
-            timeout=10
-        )
-        if response.status_code == 200:
-            print(f"[N8N ALERT] ✓ Email de alerta enviado")
-            return True
-        else:
-            print(f"[N8N ALERT] ✗ Error {response.status_code}: {response.text[:200]}")
-            return False
-    except Exception as e:
-        print(f"[N8N ALERT ERROR] {e}")
-        return False
-
 def send_n8n_result(result_data):
     """Enviar RESULTADO de verificación a n8n webhook (email: RESULTADO)"""
     try:
@@ -311,17 +517,6 @@ def send_n8n_result(result_data):
             return False
     except Exception as e:
         print(f"[N8N RESULT ERROR] {e}")
-        return False
-
-def send_alert_email():
-    """Enviar email simple de alerta usando Gmail API"""
-    try:
-        # Por ahora, solo logueamos - Gmail API requiere OAuth2 configurado
-        print(f"[EMAIL] Alerta enviada a {ALERT_EMAIL}")
-        print(f"[EMAIL] Mensaje: Nueva alerta de incendio detectada. Ver camara: {APP_URL}/camera")
-        return True
-    except Exception as e:
-        print(f"[EMAIL ERROR] {e}")
         return False
 
 # ============================================
@@ -357,6 +552,8 @@ def status():
 @app.route('/alert', methods=['POST'])
 def recibir_alerta():
     """Recibe alertas del Arduino"""
+    global last_alert_time
+    
     try:
         datos = request.get_json() or {}
         
@@ -372,9 +569,23 @@ def recibir_alerta():
         
         alertas.append(alerta)
         
-        # Enviar email si es alerta real
+        # Si es una alerta real, capturar multimedia y analizar con IA
+        # SOLO si ha pasado el tiempo de cooldown desde la última alerta
         if alerta['estado'] == 'alert':
-            send_alert_email()
+            current_time = time.time()
+            time_since_last_alert = current_time - last_alert_time
+            
+            if time_since_last_alert >= ALERT_COOLDOWN_SECONDS:
+                print(f"[THROTTLE] Procesando alerta. Capturando evidencia...")
+                
+                # Capturar multimedia y analizar automáticamente
+                process_alert_with_capture()
+                
+                last_alert_time = current_time
+                print(f"[THROTTLE] Próxima captura permitida en {ALERT_COOLDOWN_SECONDS}s")
+            else:
+                remaining_time = int(ALERT_COOLDOWN_SECONDS - time_since_last_alert)
+                print(f"[THROTTLE] Captura bloqueada. Espera {remaining_time}s más para evitar spam")
         
         return jsonify({"status": "received", "alerta_id": alerta['id']}), 200
         
@@ -384,7 +595,7 @@ def recibir_alerta():
 
 @app.route('/api/test-alert', methods=['POST'])
 def test_alert():
-    """Endpoint para probar alertas sin Arduino - Envía email de ALERTA"""
+    """Endpoint para probar alertas - Captura y analiza automáticamente"""
     alerta = {
         "id": len(alertas) + 1,
         "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
@@ -396,25 +607,23 @@ def test_alert():
     
     alertas.append(alerta)
     
-    # Enviar email de ALERTA (igual que cuando Arduino detecta umbral)
-    n8n_data = {
-        "timestamp": alerta["timestamp"],
-        "fire_detected": True,
-        "temperature": alerta["temperatura"],
-        "light": alerta["luz"],
-        "alert_message": "ALERTA: Umbral de temperatura/luz superado. Verificación requerida.",
-        "camera_url": f"{APP_URL}/camera",
-        "dashboard_url": f"{APP_URL}/dashboard"
-    }
-    send_n8n_alert(n8n_data)
+    # Capturar multimedia y analizar automáticamente
+    print(f"[TEST ALERT] Procesando alerta de prueba...")
+    results = process_alert_with_capture()
     
-    print(f"[TEST ALERT] Alerta de prueba creada y email enviado")
-    
-    return jsonify({
-        "status": "success", 
-        "alerta": alerta,
-        "message": "Alerta enviada por email. Ve a /camera para capturar evidencia."
-    }), 200
+    if results:
+        return jsonify({
+            "status": "success", 
+            "alerta": alerta,
+            "analysis": results,
+            "message": "Alerta procesada. Multimedia capturado y analizado con IA."
+        }), 200
+    else:
+        return jsonify({
+            "status": "error",
+            "alerta": alerta,
+            "message": "Error al procesar alerta"
+        }), 500
 
 @app.route('/send-result', methods=['POST'])
 def send_result():

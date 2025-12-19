@@ -2,7 +2,7 @@ runtime: python311
 
 # Variables de entorno para App Engine
 env_variables:
-  PHONE_IP: "http://192.168.1.100:8080"  # Cambiar por tu IP real
+  PHONE_IP: "https://populationless-amada-unobservedly.ngrok-free.dev"  # URL pública de ngrok
   CAPTURE_VIDEO: "True"
   CAPTURE_AUDIO: "True"
   DURATION: "5"

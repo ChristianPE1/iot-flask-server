@@ -507,7 +507,7 @@
                                     '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Sin Fuego'}
                             </h4>
                             <p><strong>Fecha:</strong> ${new Date(a.timestamp).toLocaleString('es')}</p>
-                            <p><strong>Confianza:</strong> ${(a.confidence * 100).toFixed(1)}%</p>
+                            <p><strong>Precisión:</strong> ${(a.confidence * 100).toFixed(1)}%</p>
                             ${a.files ? `
                                 <div class="links">
                                     ${a.files.photo ? `<a href="${a.files.photo}" target="_blank">Ver Foto →</a>` : ''}
