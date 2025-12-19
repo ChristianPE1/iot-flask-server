@@ -384,7 +384,7 @@ def recibir_alerta():
 
 @app.route('/api/test-alert', methods=['POST'])
 def test_alert():
-    """Endpoint para probar alertas sin Arduino - Solo guarda alerta, NO envía email"""
+    """Endpoint para probar alertas sin Arduino - Envía email de ALERTA"""
     alerta = {
         "id": len(alertas) + 1,
         "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
@@ -396,13 +396,24 @@ def test_alert():
     
     alertas.append(alerta)
     
-    # NO enviar email aquí - el email se envía cuando Vertex AI detecta fuego
-    print(f"[TEST ALERT] Alerta de prueba creada (sin enviar email)")
+    # Enviar email de ALERTA (igual que cuando Arduino detecta umbral)
+    n8n_data = {
+        "timestamp": alerta["timestamp"],
+        "fire_detected": True,
+        "temperature": alerta["temperatura"],
+        "light": alerta["luz"],
+        "alert_message": "ALERTA: Umbral de temperatura/luz superado. Verificación requerida.",
+        "camera_url": f"{APP_URL}/camera",
+        "dashboard_url": f"{APP_URL}/dashboard"
+    }
+    send_n8n_alert(n8n_data)
+    
+    print(f"[TEST ALERT] Alerta de prueba creada y email enviado")
     
     return jsonify({
         "status": "success", 
         "alerta": alerta,
-        "message": "Alerta guardada. Ahora ve a /camera para capturar y analizar."
+        "message": "Alerta enviada por email. Ve a /camera para capturar evidencia."
     }), 200
 
 @app.route('/send-result', methods=['POST'])
@@ -677,27 +688,33 @@ def analyze_files():
         }
         analysis_history.append(record)
         
-        # Si se detectó fuego, enviar alerta a n8n
+        # Enviar resultado de Vertex AI a n8n (send-result)
+        # Determinar status según resultado de Vertex AI
         if results["fire_detected"]:
-            print(f"[ALERT] 🔥 FUEGO DETECTADO - Confianza: {results['confidence']:.1%}")
-            
-            # Obtener datos de la última alerta del Arduino (temperatura y luz)
-            last_alert = alertas[-1] if alertas else {}
-            temperatura = last_alert.get('temperatura', 0)
-            luz = last_alert.get('luz', 0)
-            
-            # Enviar email de ALERTA (para que abran la cámara)
-            n8n_data = {
-                "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                "fire_detected": True,
-                "confidence": round(results["confidence"] * 100, 1),  # Convertir a porcentaje
-                "temperature": temperatura,
-                "light": luz,
-                "alert_message": f"ALERTA: Fuego detectado con {results['confidence']:.1%} de confianza",
-                "camera_url": f"{APP_URL}/camera",
-                "dashboard_url": f"{APP_URL}/dashboard"
-            }
-            send_n8n_alert(n8n_data)
+            status_text = "INCENDIO CONFIRMADO"
+            status_bg_color = "#dc2626"  # Rojo
+            user_response = f"Vertex AI detectó fuego con {results['confidence']:.1%} de precisión"
+            print(f"[VERTEX AI RESULT] 🔥 FUEGO DETECTADO - Precisión: {results['confidence']:.1%}")
+        else:
+            status_text = "FALSA ALARMA"
+            status_bg_color = "#22c55e"  # Verde
+            user_response = f"Vertex AI no detectó fuego (precisión: {results['confidence']:.1%})"
+            print(f"[VERTEX AI RESULT] ✅ SIN FUEGO - Precisión: {results['confidence']:.1%}")
+        
+        # Enviar email de RESULTADO (con respuesta de Vertex AI)
+        result_data = {
+            "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            "user_confirmed": results["fire_detected"],
+            "is_false_alarm": not results["fire_detected"],
+            "status_text": status_text,
+            "status_bg_color": status_bg_color,
+            "user_response": user_response,
+            "photo_url": files_info.get("photo", ""),
+            "video_url": files_info.get("video", ""),
+            "audio_url": files_info.get("audio", ""),
+            "dashboard_url": f"{APP_URL}/dashboard"
+        }
+        send_n8n_result(result_data)
         
         return jsonify({
             "success": True,
