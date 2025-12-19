@@ -71,6 +71,18 @@
             gap: 12px; 
             margin-bottom: 20px; 
         }
+        .btn-camera { 
+            grid-column: 1 / -1;
+            padding: 12px;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            color: #999;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-camera:hover { background: #222; color: #fff; }
         .btn { 
             padding: 16px; 
             border: none; 
@@ -163,6 +175,9 @@
         </div>
 
         <div class="controls">
+            <button class="btn-camera" id="switchCameraBtn" onclick="switchCamera()">
+                🔄 Cambiar Cámara (Frontal/Trasera)
+            </button>
             <button class="btn btn-primary" id="startBtn" onclick="startRecording()">
                 Iniciar Grabación
             </button>
@@ -205,20 +220,38 @@
         let audioChunks = [];
         let stream = null;
         let audioStream = null;
+        let currentFacingMode = 'user'; // 'user' = frontal, 'environment' = trasera
 
         // Iniciar cámara al cargar
-        async function initCamera() {
+        async function initCamera(facingMode = 'user') {
             try {
-                stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { width: 1280, height: 720 }, 
+                // Detener stream anterior si existe
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                }
+
+                const constraints = {
+                    video: { 
+                        width: { ideal: 1280 }, 
+                        height: { ideal: 720 },
+                        facingMode: facingMode
+                    }, 
                     audio: false 
-                });
+                };
+
+                stream = await navigator.mediaDevices.getUserMedia(constraints);
                 video.srcObject = stream;
-                console.log('✅ Cámara iniciada');
+                currentFacingMode = facingMode;
+                console.log(`✅ Cámara iniciada (${facingMode === 'user' ? 'Frontal' : 'Trasera'})`);
             } catch (error) {
                 console.error('❌ Error al acceder a la cámara:', error);
                 alert('Error: No se puede acceder a la cámara. Verifica los permisos.');
             }
+        }
+
+        async function switchCamera() {
+            const newMode = currentFacingMode === 'user' ? 'environment' : 'user';
+            await initCamera(newMode);
         }
 
         async function startRecording() {

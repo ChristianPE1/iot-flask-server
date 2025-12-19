@@ -28,7 +28,7 @@ BUCKET_NAME = os.getenv('BUCKET_NAME', 'iot-captures-481620')
 VERTEX_AI_ENDPOINT = os.getenv('VERTEX_AI_ENDPOINT', 'https://southamerica-east1-aiplatform.googleapis.com/v1/projects/peaceful-impact-478922-t6/locations/southamerica-east1/endpoints/4530889505971896320:predict')
 ALERT_EMAIL = os.getenv('ALERT_EMAIL', 'cpardave@unsa.edu.pe')
 APP_URL = os.getenv('APP_URL', 'https://project-iot-481620.ue.r.appspot.com')
-N8N_WEBHOOK = 'https://christiantestcloud.app.n8n.cloud/webhook-test/send-alerta'
+N8N_WEBHOOK = 'https://christiantestcloud.app.n8n.cloud/webhook/send-alerta'  # Webhook en producción
 
 # Cliente de autenticación
 credentials = None
