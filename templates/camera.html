@@ -3,514 +3,766 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>📱 Sistema de Capturas IoT</title>
+    <title>📷 Cámara IoT - Captura Manual</title>
     <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            margin: 0; 
-            padding: 20px; 
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
             min-height: 100vh;
+            color: white;
+            padding: 20px;
         }
-        .container { 
-            max-width: 800px; 
-            margin: 0 auto; 
-            background: rgba(0,0,0,0.3);
-            padding: 30px;
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+
+        .status-card {
+            background: rgba(255,255,255,0.1);
             border-radius: 15px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            padding: 20px;
+            margin-bottom: 20px;
+            text-align: center;
         }
-        .status { 
-            padding: 15px; 
-            margin: 10px 0; 
-            border-radius: 8px; 
+
+        .status-indicator {
+            display: inline-block;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            margin-right: 10px;
+            animation: pulse 2s infinite;
+        }
+
+        .status-idle { background: #888; animation: none; }
+        .status-recording { background: #f44336; }
+        .status-uploading { background: #ff9800; }
+        .status-analyzing { background: #2196f3; }
+        .status-complete { background: #4caf50; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Video Preview */
+        .video-container {
+            background: #000;
+            border-radius: 15px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        #videoPreview {
+            width: 100%;
+            display: block;
+            max-height: 400px;
+            object-fit: cover;
+        }
+
+        .recording-badge {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: #f44336;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
             font-weight: bold;
+            display: none;
         }
-        .online { background: rgba(76, 175, 80, 0.8); }
-        .offline { background: rgba(244, 67, 54, 0.8); }
-        .alert { background: rgba(255, 152, 0, 0.9); animation: pulse 1s infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 0.8; } 50% { opacity: 1; } }
-        .btn { 
-            padding: 12px 24px; 
-            margin: 10px; 
-            background: #4CAF50; 
-            color: white; 
-            border: none; 
-            border-radius: 6px; 
+
+        .recording-badge.active {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .rec-dot {
+            width: 10px;
+            height: 10px;
+            background: white;
+            border-radius: 50%;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        /* Control Buttons */
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 15px 20px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: bold;
             cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-start {
+            background: linear-gradient(135deg, #4caf50, #45a049);
+            color: white;
+        }
+
+        .btn-start:hover:not(:disabled) {
+            transform: scale(1.02);
+            box-shadow: 0 5px 20px rgba(76, 175, 80, 0.4);
+        }
+
+        .btn-stop {
+            background: linear-gradient(135deg, #f44336, #d32f2f);
+            color: white;
+        }
+
+        .btn-stop:hover:not(:disabled) {
+            transform: scale(1.02);
+            box-shadow: 0 5px 20px rgba(244, 67, 54, 0.4);
+        }
+
+        /* Capture Options */
+        .capture-options {
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .capture-options h3 {
+            margin-bottom: 15px;
             font-size: 16px;
         }
-        .btn:hover { background: #45a049; }
-        .btn:disabled { background: #666; cursor: not-allowed; }
-        .camera-container { 
-            text-align: center; 
-            margin: 20px 0; 
+
+        .option-row {
+            display: flex;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
         }
-        .hidden { display: none; }
-        #video { 
-            width: 100%; 
-            max-width: 400px; 
+
+        .option-row:last-child {
+            border-bottom: none;
+        }
+
+        .option-row label {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .option-row input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            accent-color: #4caf50;
+        }
+
+        /* Progress Section */
+        .progress-section {
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .progress-section.active {
+            display: block;
+        }
+
+        .progress-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 0;
+            gap: 10px;
+        }
+
+        .progress-icon {
+            width: 30px;
+            text-align: center;
+            font-size: 20px;
+        }
+
+        .progress-text {
+            flex: 1;
+        }
+
+        .progress-status {
+            font-size: 20px;
+        }
+
+        /* Results Section */
+        .results-section {
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 20px;
+            display: none;
+        }
+
+        .results-section.active {
+            display: block;
+        }
+
+        .result-item {
+            background: rgba(255,255,255,0.1);
             border-radius: 10px;
-        }
-        .notification {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 15px 25px;
-            background: #ff4444;
-            color: white;
-            border-radius: 8px;
-            font-weight: bold;
-            z-index: 1000;
-            animation: slideIn 0.3s ease-out;
-        }
-        @keyframes slideIn { from { right: -300px; } to { right: 20px; } }
-        .log {
-            background: rgba(0,0,0,0.5);
             padding: 15px;
-            border-radius: 8px;
-            margin: 10px 0;
-            max-height: 200px;
-            overflow-y: auto;
-            font-family: monospace;
+            margin-bottom: 10px;
+        }
+
+        .result-item h4 {
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .result-item a {
+            color: #64b5f6;
+            word-break: break-all;
             font-size: 12px;
+        }
+
+        /* Analysis Result */
+        .analysis-result {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+        }
+
+        .analysis-result.fire {
+            background: linear-gradient(135deg, #ff5252, #d32f2f);
+        }
+
+        .analysis-result.no-fire {
+            background: linear-gradient(135deg, #4caf50, #388e3c);
+        }
+
+        .analysis-result h2 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .confidence-bar {
+            background: rgba(0,0,0,0.3);
+            height: 20px;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 15px 0;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            background: white;
+            border-radius: 10px;
+            transition: width 1s ease;
+        }
+
+        /* Links */
+        .links {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .links a {
+            color: #64b5f6;
+            text-decoration: none;
+            margin: 0 10px;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>📱 Sistema de Capturas IoT</h1>
-        <p>🔥 Detección automática de incendios con cámara inteligente</p>
-        
-        <div id="status" class="status offline">
-            📴 Desconectado del servidor
+        <h1>📷 Cámara IoT - Captura Manual</h1>
+
+        <!-- Status Card -->
+        <div class="status-card">
+            <span class="status-indicator status-idle" id="statusIndicator"></span>
+            <span id="statusText">Listo para capturar</span>
         </div>
 
-        <div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; margin: 10px 0;">
-            <h3 style="margin-top: 0;">📊 Información del Sistema</h3>
-            <div id="systemInfo" style="font-size: 14px;">
-                <p>🌐 Estado: Iniciando...</p>
-                <p>📱 Permisos: Verificando...</p>
-                <p>🔍 Última verificación: Nunca</p>
-                <p>🚨 Alertas detectadas: 0</p>
+        <!-- Video Preview -->
+        <div class="video-container">
+            <video id="videoPreview" autoplay playsinline muted></video>
+            <div class="recording-badge" id="recordingBadge">
+                <span class="rec-dot"></span>
+                <span>GRABANDO</span>
             </div>
         </div>
 
-        <div class="camera-container">
-            <button id="startCamera" class="btn">📷 Iniciar Cámara</button>
-            <button id="stopCamera" class="btn hidden">🛑 Detener Cámara</button>
-            <button id="testNotification" class="btn" style="background: #FF9800;">🔔 Probar Notificación</button>
-            <br>
-            <video id="video" class="hidden" autoplay playsinline></video>
-            <canvas id="canvas" class="hidden"></canvas>
+        <!-- Control Buttons -->
+        <div class="controls">
+            <button class="btn btn-start" id="btnStart" onclick="iniciarCaptura()">
+                ▶️ Iniciar Cámara
+            </button>
+            <button class="btn btn-stop" id="btnStop" onclick="detenerCaptura()" disabled>
+                ⏹️ Detener y Subir
+            </button>
         </div>
 
-        <div class="log">
-            <div id="log"></div>
+        <!-- Capture Options -->
+        <div class="capture-options">
+            <h3>⚙️ Opciones de Captura</h3>
+            <div class="option-row">
+                <label>
+                    <input type="checkbox" id="capturePhoto" checked>
+                    📷 Capturar Foto
+                </label>
+            </div>
+            <div class="option-row">
+                <label>
+                    <input type="checkbox" id="captureVideo" checked>
+                    🎥 Grabar Video
+                </label>
+            </div>
+            <div class="option-row">
+                <label>
+                    <input type="checkbox" id="captureAudio" checked>
+                    🎤 Grabar Audio
+                </label>
+            </div>
+        </div>
+
+        <!-- Progress Section -->
+        <div class="progress-section" id="progressSection">
+            <h3>📤 Subiendo archivos...</h3>
+            <div class="progress-item" id="progressPhoto">
+                <span class="progress-icon">📷</span>
+                <span class="progress-text">Foto</span>
+                <span class="progress-status">⏳</span>
+            </div>
+            <div class="progress-item" id="progressVideo">
+                <span class="progress-icon">🎥</span>
+                <span class="progress-text">Video</span>
+                <span class="progress-status">⏳</span>
+            </div>
+            <div class="progress-item" id="progressAudio">
+                <span class="progress-icon">🎤</span>
+                <span class="progress-text">Audio</span>
+                <span class="progress-status">⏳</span>
+            </div>
+            <div class="progress-item" id="progressAnalysis">
+                <span class="progress-icon">🤖</span>
+                <span class="progress-text">Análisis Vertex AI</span>
+                <span class="progress-status">⏳</span>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div class="results-section" id="resultsSection">
+            <h3>📁 Archivos Capturados</h3>
+            <div id="fileResults"></div>
+            
+            <div class="analysis-result" id="analysisResult">
+                <h2 id="analysisTitle">Analizando...</h2>
+                <p id="analysisDescription"></p>
+                <div class="confidence-bar">
+                    <div class="confidence-fill" id="confidenceFill" style="width: 0%"></div>
+                </div>
+                <p id="confidenceText"></p>
+            </div>
+        </div>
+
+        <!-- Links -->
+        <div class="links">
+            <a href="/dashboard">📊 Ver Dashboard</a>
+            <a href="/">🏠 Inicio</a>
         </div>
     </div>
 
     <script>
-        class IoTCameraSystem {
-            constructor() {
-                this.serverUrl = 'https://project-iot-481620.ue.r.appspot.com';
-                this.video = document.getElementById('video');
-                this.canvas = document.getElementById('canvas');
-                this.statusDiv = document.getElementById('status');
-                this.logDiv = document.getElementById('log');
-                this.systemInfoDiv = document.getElementById('systemInfo');
-                this.mediaStream = null;
-                this.isMonitoring = false;
-                this.mediaRecorder = null;
-                this.audioRecorder = null;
-                this.lastProcessedAlert = null;
-                this.alertsDetected = 0;
-                
-                this.init();
-            }
+        let videoStream = null;
+        let mediaRecorder = null;
+        let audioRecorder = null;
+        let videoChunks = [];
+        let audioChunks = [];
+        let isRecording = false;
 
-            init() {
-                this.setupEventListeners();
-                this.startMonitoring();
-                this.requestNotificationPermission();
-            }
+        // Captured files
+        let capturedPhoto = null;
+        let capturedVideo = null;
+        let capturedAudio = null;
 
-            setupEventListeners() {
-                document.getElementById('startCamera').onclick = () => this.startCamera();
-                document.getElementById('stopCamera').onclick = () => this.stopCamera();
-                document.getElementById('testNotification').onclick = () => this.testNotification();
+        async function iniciarCaptura() {
+            try {
+                // Request camera and microphone access
+                const constraints = {
+                    video: { 
+                        facingMode: 'environment',
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    },
+                    audio: true
+                };
+
+                videoStream = await navigator.mediaDevices.getUserMedia(constraints);
                 
-                // Registrar Service Worker para notificaciones push
-                if ('serviceWorker' in navigator && 'PushManager' in window) {
-                    navigator.serviceWorker.register('/sw.js')
-                        .then(registration => {
-                            console.log('Service Worker registrado:', registration);
-                        })
-                        .catch(error => {
-                            console.error('Error registrando Service Worker:', error);
-                        });
+                const videoPreview = document.getElementById('videoPreview');
+                videoPreview.srcObject = videoStream;
+
+                // Start video recording
+                if (document.getElementById('captureVideo').checked) {
+                    const videoTrack = videoStream.getVideoTracks()[0];
+                    const audioTrack = videoStream.getAudioTracks()[0];
+                    
+                    const recordStream = new MediaStream([videoTrack, audioTrack]);
+                    mediaRecorder = new MediaRecorder(recordStream, { mimeType: 'video/webm' });
+                    
+                    mediaRecorder.ondataavailable = (e) => {
+                        if (e.data.size > 0) videoChunks.push(e.data);
+                    };
+                    
+                    mediaRecorder.start();
                 }
-            }
 
-            async requestNotificationPermission() {
-                if ('Notification' in window) {
-                    const permission = await Notification.requestPermission();
-                    if (permission === 'granted') {
-                        this.log('✅ Permisos de notificación concedidos');
-                        // Mostrar notificación de bienvenida
-                        this.showNotification('✅ Sistema listo. Recibirás alertas de fuego aquí.');
-                    } else {
-                        this.log('⚠️ Permisos de notificación denegados');
+                // Start audio-only recording
+                if (document.getElementById('captureAudio').checked) {
+                    const audioTrack = videoStream.getAudioTracks()[0];
+                    if (audioTrack) {
+                        const audioStream = new MediaStream([audioTrack]);
+                        audioRecorder = new MediaRecorder(audioStream, { mimeType: 'audio/webm' });
+                        
+                        audioRecorder.ondataavailable = (e) => {
+                            if (e.data.size > 0) audioChunks.push(e.data);
+                        };
+                        
+                        audioRecorder.start();
                     }
                 }
-            }
 
-            testNotification() {
-                this.log('🔔 Probando notificación...');
-                this.showNotification('🔥 ¡PRUEBA! Esta es una alerta de fuego simulada');
-                
-                // Vibrar si está disponible
-                if (navigator.vibrate) {
-                    navigator.vibrate([200, 100, 200]);
-                }
-                
-                this.updateStatus('🔔 Prueba de notificación enviada', 'alert');
-                setTimeout(() => {
-                    this.updateStatus('🔗 Conectado al servidor IoT - Monitoreando...', 'online');
-                }, 3000);
-            }
+                isRecording = true;
+                updateUI('recording');
 
-            async startCamera() {
-                try {
-                    this.mediaStream = await navigator.mediaDevices.getUserMedia({ 
-                        video: { 
-                            facingMode: 'environment',  // Cámara trasera preferida
-                            width: { ideal: 1280 },
-                            height: { ideal: 720 }
-                        }, 
-                        audio: true 
-                    });
-                    
-                    this.video.srcObject = this.mediaStream;
-                    this.video.classList.remove('hidden');
-                    
-                    document.getElementById('startCamera').classList.add('hidden');
-                    document.getElementById('stopCamera').classList.remove('hidden');
-                    
-                    this.updateStatus('📹 Cámara activa - Esperando alertas...', 'online');
-                    this.log('📷 Cámara iniciada correctamente');
-                    
-                } catch (error) {
-                    this.log(`❌ Error accediendo a la cámara: ${error.message}`);
-                    this.showNotification('Error al acceder a la cámara');
-                }
-            }
-
-            stopCamera() {
-                if (this.mediaStream) {
-                    this.mediaStream.getTracks().forEach(track => track.stop());
-                    this.mediaStream = null;
-                }
-                
-                this.video.classList.add('hidden');
-                document.getElementById('startCamera').classList.remove('hidden');
-                document.getElementById('stopCamera').classList.add('hidden');
-                
-                this.updateStatus('📴 Cámara desactivada', 'offline');
-                this.log('🛑 Cámara detenida');
-            }
-
-            startMonitoring() {
-                this.isMonitoring = true;
-                this.checkForAlerts();
-            }
-
-            async checkForAlerts() {
-                if (!this.isMonitoring) return;
-
-                try {
-                    const response = await fetch(`${this.serverUrl}/status`);
-                    const data = await response.json();
-                    
-                    if (data.status === 'online') {
-                        // Verificar si hay alertas recientes
-                        const alertsResponse = await fetch(`${this.serverUrl}/alertas`);
-                        const alertsData = await alertsResponse.json();
-                        
-                        // Actualizar info del sistema
-                        this.updateSystemInfo(alertsData);
-                        
-                        if (alertsData.alertas && alertsData.alertas.length > 0) {
-                            const lastAlert = alertsData.alertas[alertsData.alertas.length - 1];
-                            
-                            // Verificar si es una alerta nueva que no hemos procesado
-                            if (lastAlert.estado === 'alert' && !this.lastProcessedAlert) {
-                                this.lastProcessedAlert = lastAlert.timestamp;
-                                this.alertsDetected++;
-                                this.log(`🚨 ¡Nueva alerta detectada! Timestamp: ${lastAlert.timestamp}`);
-                                await this.handleFireAlert(lastAlert);
-                            } else if (lastAlert.estado === 'alert' && this.lastProcessedAlert !== lastAlert.timestamp) {
-                                // Es una alerta diferente a la última procesada
-                                this.lastProcessedAlert = lastAlert.timestamp;
-                                this.alertsDetected++;
-                                this.log(`🚨 ¡Nueva alerta detectada! Timestamp: ${lastAlert.timestamp}`);
-                                await this.handleFireAlert(lastAlert);
-                            }
-                        }
-                        
-                        this.updateStatus('🔗 Conectado al servidor IoT - Monitoreando...', 'online');
-                    }
-                } catch (error) {
-                    this.updateStatus('❌ Error de conexión', 'offline');
-                    this.log(`🔴 Error: ${error.message}`);
-                }
-
-                // Revisar cada 2 segundos (más frecuente)
-                setTimeout(() => this.checkForAlerts(), 2000);
-            }
-
-            updateSystemInfo(alertsData) {
-                const now = new Date().toLocaleTimeString();
-                const hasNotifications = Notification.permission === 'granted';
-                const hasCamera = this.mediaStream !== null;
-                
-                this.systemInfoDiv.innerHTML = `
-                    <p>🌐 Estado: Conectado y monitoreando</p>
-                    <p>📱 Permisos de notificación: ${hasNotifications ? '✅ Concedidos' : '❌ Denegados'}</p>
-                    <p>📷 Cámara: ${hasCamera ? '✅ Activa' : '⚠️ Inactiva'}</p>
-                    <p>🔍 Última verificación: ${now}</p>
-                    <p>🚨 Alertas detectadas: ${this.alertsDetected}</p>
-                    <p>📊 Total alertas en servidor: ${alertsData.total}</p>
-                `;
-            }
-
-            async handleFireAlert(alertData) {
-                this.updateStatus('🚨 ¡ALERTA DE FUEGO DETECTADA!', 'alert');
-                
-                // Vibrar el dispositivo si está disponible
-                if (navigator.vibrate) {
-                    navigator.vibrate([200, 100, 200, 100, 200]);
-                }
-                
-                // Notificación del navegador
-                this.showNotification('🔥 ¡FUEGO DETECTADO! Capturando evidencia...');
-                
-                this.log(`🔥 ALERTA: Temp: ${alertData.temperatura}°C, Luz: ${alertData.luz}`);
-
-                // Auto-activar cámara si no está activa
-                if (!this.mediaStream) {
-                    this.log('📷 Activando cámara automáticamente...');
-                    await this.startCamera();
-                    await this.sleep(2000); // Esperar 2 segundos para estabilizar
-                }
-
-                if (this.mediaStream) {
-                    this.log('🎬 Iniciando captura de evidencia...');
-                    await this.captureEvidence();
-                } else {
-                    this.log('❌ No se pudo activar la cámara');
-                    this.showNotification('❌ Error: No se pudo activar la cámara');
-                }
-            }
-
-            async captureEvidence() {
-                try {
-                    // 1. Capturar foto
-                    await this.capturePhoto();
-                    
-                    // 2. Grabar video de 10 segundos
-                    await this.recordVideo(10000);
-                    
-                    // 3. Grabar audio de 10 segundos
-                    await this.recordAudio(10000);
-                    
-                    this.log('✅ Evidencia capturada y enviada al servidor');
-                    
-                } catch (error) {
-                    this.log(`❌ Error capturando evidencia: ${error.message}`);
-                }
-            }
-
-            async capturePhoto() {
-                if (!this.mediaStream) return;
-
-                const canvas = this.canvas;
-                const context = canvas.getContext('2d');
-                
-                canvas.width = this.video.videoWidth;
-                canvas.height = this.video.videoHeight;
-                context.drawImage(this.video, 0, 0);
-                
-                canvas.toBlob(async (blob) => {
-                    const formData = new FormData();
-                    formData.append('photo', blob, `emergency_photo_${Date.now()}.jpg`);
-                    
-                    try {
-                        const response = await fetch(`${this.serverUrl}/upload/photo`, {
-                            method: 'POST',
-                            body: formData
-                        });
-                        
-                        if (response.ok) {
-                            this.log('📸 Foto de emergencia enviada');
-                        }
-                    } catch (error) {
-                        this.log(`❌ Error enviando foto: ${error.message}`);
-                    }
-                }, 'image/jpeg', 0.8);
-            }
-
-            async recordVideo(duration) {
-                if (!this.mediaStream) return;
-
-                return new Promise((resolve, reject) => {
-                    const chunks = [];
-                    this.mediaRecorder = new MediaRecorder(this.mediaStream, {
-                        mimeType: 'video/webm'
-                    });
-
-                    this.mediaRecorder.ondataavailable = (event) => {
-                        if (event.data.size > 0) chunks.push(event.data);
-                    };
-
-                    this.mediaRecorder.onstop = async () => {
-                        const blob = new Blob(chunks, { type: 'video/webm' });
-                        const formData = new FormData();
-                        formData.append('video', blob, `emergency_video_${Date.now()}.webm`);
-                        
-                        try {
-                            const response = await fetch(`${this.serverUrl}/upload/video`, {
-                                method: 'POST',
-                                body: formData
-                            });
-                            
-                            if (response.ok) {
-                                this.log('🎥 Video de emergencia enviado');
-                            }
-                            resolve();
-                        } catch (error) {
-                            this.log(`❌ Error enviando video: ${error.message}`);
-                            reject(error);
-                        }
-                    };
-
-                    this.mediaRecorder.start();
-                    this.log('🎥 Iniciando grabación de video...');
-                    
-                    setTimeout(() => {
-                        this.mediaRecorder.stop();
-                        this.log('🎥 Video grabado');
-                    }, duration);
-                });
-            }
-
-            async recordAudio(duration) {
-                if (!this.mediaStream) return;
-
-                return new Promise((resolve, reject) => {
-                    const audioStream = this.mediaStream.getAudioTracks();
-                    if (audioStream.length === 0) {
-                        resolve();
-                        return;
-                    }
-
-                    const chunks = [];
-                    this.audioRecorder = new MediaRecorder(new MediaStream([audioStream[0]]), {
-                        mimeType: 'audio/webm'
-                    });
-
-                    this.audioRecorder.ondataavailable = (event) => {
-                        if (event.data.size > 0) chunks.push(event.data);
-                    };
-
-                    this.audioRecorder.onstop = async () => {
-                        const blob = new Blob(chunks, { type: 'audio/webm' });
-                        const formData = new FormData();
-                        formData.append('audio', blob, `emergency_audio_${Date.now()}.webm`);
-                        
-                        try {
-                            const response = await fetch(`${this.serverUrl}/upload/audio`, {
-                                method: 'POST',
-                                body: formData
-                            });
-                            
-                            if (response.ok) {
-                                this.log('🎵 Audio de emergencia enviado');
-                            }
-                            resolve();
-                        } catch (error) {
-                            this.log(`❌ Error enviando audio: ${error.message}`);
-                            reject(error);
-                        }
-                    };
-
-                    this.audioRecorder.start();
-                    this.log('🎵 Iniciando grabación de audio...');
-                    
-                    setTimeout(() => {
-                        this.audioRecorder.stop();
-                        this.log('🎵 Audio grabado');
-                    }, duration);
-                });
-            }
-
-            updateStatus(message, className) {
-                this.statusDiv.textContent = message;
-                this.statusDiv.className = `status ${className}`;
-            }
-
-            showNotification(message) {
-                // Notificación del navegador
-                if (Notification.permission === 'granted') {
-                    const notification = new Notification('🔥 Sistema IoT - Alerta', {
-                        body: message,
-                        icon: 'https://img.icons8.com/color/96/000000/fire-element--v1.png',
-                        badge: 'https://img.icons8.com/color/48/000000/fire-element--v1.png',
-                        vibrate: [200, 100, 200, 100, 200],
-                        requireInteraction: true, // Requiere que el usuario interactúe
-                        tag: 'fire-alert' // Para reemplazar notificaciones antiguas
-                    });
-                    
-                    notification.onclick = function() {
-                        window.focus();
-                        notification.close();
-                    };
-                } else {
-                    this.log('⚠️ Permisos de notificación no concedidos');
-                }
-
-                // Notificación visual en pantalla
-                const visualNotification = document.createElement('div');
-                visualNotification.className = 'notification';
-                visualNotification.textContent = message;
-                document.body.appendChild(visualNotification);
-
-                setTimeout(() => {
-                    visualNotification.remove();
-                }, 5000);
-            }
-
-            log(message) {
-                const timestamp = new Date().toLocaleTimeString();
-                this.logDiv.innerHTML = `[${timestamp}] ${message}<br>` + this.logDiv.innerHTML;
-                
-                // Mantener solo las últimas 50 líneas
-                const lines = this.logDiv.innerHTML.split('<br>');
-                if (lines.length > 50) {
-                    this.logDiv.innerHTML = lines.slice(0, 50).join('<br>');
-                }
-            }
-
-            sleep(ms) {
-                return new Promise(resolve => setTimeout(resolve, ms));
+            } catch (error) {
+                console.error('Error accessing camera:', error);
+                alert('Error al acceder a la cámara: ' + error.message);
             }
         }
 
-        // Inicializar sistema cuando la página carga
-        window.addEventListener('load', () => {
-            new IoTCameraSystem();
-        });
+        async function detenerCaptura() {
+            if (!isRecording) return;
+
+            updateUI('uploading');
+
+            // Capture photo from video stream
+            if (document.getElementById('capturePhoto').checked && videoStream) {
+                const video = document.getElementById('videoPreview');
+                const canvas = document.createElement('canvas');
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                canvas.getContext('2d').drawImage(video, 0, 0);
+                
+                capturedPhoto = await new Promise(resolve => {
+                    canvas.toBlob(resolve, 'image/jpeg', 0.9);
+                });
+            }
+
+            // Stop video recording
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+                await new Promise(resolve => {
+                    mediaRecorder.onstop = resolve;
+                });
+                capturedVideo = new Blob(videoChunks, { type: 'video/webm' });
+            }
+
+            // Stop audio recording
+            if (audioRecorder && audioRecorder.state !== 'inactive') {
+                audioRecorder.stop();
+                await new Promise(resolve => {
+                    audioRecorder.onstop = resolve;
+                });
+                capturedAudio = new Blob(audioChunks, { type: 'audio/webm' });
+            }
+
+            // Stop video stream
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+            }
+
+            isRecording = false;
+
+            // Upload files to Cloud Storage
+            await uploadFiles();
+        }
+
+        async function uploadFiles() {
+            const results = {
+                photo_url: null,
+                video_url: null,
+                audio_url: null
+            };
+
+            document.getElementById('progressSection').classList.add('active');
+
+            // Upload photo
+            if (capturedPhoto) {
+                updateProgress('progressPhoto', 'uploading');
+                try {
+                    const formData = new FormData();
+                    formData.append('photo', capturedPhoto, 'capture.jpg');
+                    
+                    const response = await fetch('/upload/photo', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const data = await response.json();
+                    if (data.url) {
+                        results.photo_url = data.url;
+                        updateProgress('progressPhoto', 'success');
+                    } else {
+                        updateProgress('progressPhoto', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error uploading photo:', error);
+                    updateProgress('progressPhoto', 'error');
+                }
+            } else {
+                document.getElementById('progressPhoto').style.display = 'none';
+            }
+
+            // Upload video
+            if (capturedVideo) {
+                updateProgress('progressVideo', 'uploading');
+                try {
+                    const formData = new FormData();
+                    formData.append('video', capturedVideo, 'capture.webm');
+                    
+                    const response = await fetch('/upload/video', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const data = await response.json();
+                    if (data.url) {
+                        results.video_url = data.url;
+                        updateProgress('progressVideo', 'success');
+                    } else {
+                        updateProgress('progressVideo', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error uploading video:', error);
+                    updateProgress('progressVideo', 'error');
+                }
+            } else {
+                document.getElementById('progressVideo').style.display = 'none';
+            }
+
+            // Upload audio
+            if (capturedAudio) {
+                updateProgress('progressAudio', 'uploading');
+                try {
+                    const formData = new FormData();
+                    formData.append('audio', capturedAudio, 'capture.webm');
+                    
+                    const response = await fetch('/upload/audio', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const data = await response.json();
+                    if (data.url) {
+                        results.audio_url = data.url;
+                        updateProgress('progressAudio', 'success');
+                    } else {
+                        updateProgress('progressAudio', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error uploading audio:', error);
+                    updateProgress('progressAudio', 'error');
+                }
+            } else {
+                document.getElementById('progressAudio').style.display = 'none';
+            }
+
+            // Analyze with Vertex AI
+            updateProgress('progressAnalysis', 'uploading');
+            updateUI('analyzing');
+
+            try {
+                const response = await fetch('/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(results)
+                });
+
+                const analysisData = await response.json();
+                updateProgress('progressAnalysis', 'success');
+                
+                showResults(results, analysisData);
+
+            } catch (error) {
+                console.error('Error analyzing:', error);
+                updateProgress('progressAnalysis', 'error');
+                showResults(results, null);
+            }
+
+            updateUI('complete');
+            resetCapture();
+        }
+
+        function showResults(files, analysis) {
+            const resultsSection = document.getElementById('resultsSection');
+            const fileResults = document.getElementById('fileResults');
+            const analysisResult = document.getElementById('analysisResult');
+            
+            resultsSection.classList.add('active');
+
+            // Show file links
+            let filesHtml = '';
+            if (files.photo_url) {
+                filesHtml += `
+                    <div class="result-item">
+                        <h4>📷 Foto</h4>
+                        <a href="${files.photo_url}" target="_blank">${files.photo_url}</a>
+                    </div>
+                `;
+            }
+            if (files.video_url) {
+                filesHtml += `
+                    <div class="result-item">
+                        <h4>🎥 Video</h4>
+                        <a href="${files.video_url}" target="_blank">${files.video_url}</a>
+                    </div>
+                `;
+            }
+            if (files.audio_url) {
+                filesHtml += `
+                    <div class="result-item">
+                        <h4>🎤 Audio</h4>
+                        <a href="${files.audio_url}" target="_blank">${files.audio_url}</a>
+                    </div>
+                `;
+            }
+            fileResults.innerHTML = filesHtml;
+
+            // Show analysis result
+            if (analysis && analysis.results) {
+                const fireDetected = analysis.fire_detected;
+                const confidence = (analysis.confidence * 100).toFixed(1);
+
+                analysisResult.className = 'analysis-result ' + (fireDetected ? 'fire' : 'no-fire');
+                
+                document.getElementById('analysisTitle').textContent = fireDetected 
+                    ? '🔥 ¡FUEGO DETECTADO!' 
+                    : '✅ Sin fuego detectado';
+                
+                document.getElementById('analysisDescription').textContent = fireDetected
+                    ? 'Vertex AI ha detectado fuego o humo en las capturas. Se ha enviado una alerta por email.'
+                    : 'No se detectó fuego ni humo en las capturas analizadas.';
+                
+                document.getElementById('confidenceFill').style.width = confidence + '%';
+                document.getElementById('confidenceText').textContent = `Confianza: ${confidence}%`;
+            } else {
+                analysisResult.className = 'analysis-result';
+                document.getElementById('analysisTitle').textContent = '⚠️ Análisis no disponible';
+                document.getElementById('analysisDescription').textContent = 'No se pudo completar el análisis con Vertex AI.';
+            }
+        }
+
+        function updateProgress(elementId, status) {
+            const element = document.getElementById(elementId);
+            const statusSpan = element.querySelector('.progress-status');
+            
+            switch(status) {
+                case 'uploading':
+                    statusSpan.textContent = '⏳';
+                    break;
+                case 'success':
+                    statusSpan.textContent = '✅';
+                    break;
+                case 'error':
+                    statusSpan.textContent = '❌';
+                    break;
+            }
+        }
+
+        function updateUI(state) {
+            const indicator = document.getElementById('statusIndicator');
+            const statusText = document.getElementById('statusText');
+            const btnStart = document.getElementById('btnStart');
+            const btnStop = document.getElementById('btnStop');
+            const recordingBadge = document.getElementById('recordingBadge');
+
+            indicator.className = 'status-indicator';
+
+            switch(state) {
+                case 'recording':
+                    indicator.classList.add('status-recording');
+                    statusText.textContent = '🔴 Grabando...';
+                    btnStart.disabled = true;
+                    btnStop.disabled = false;
+                    recordingBadge.classList.add('active');
+                    break;
+                case 'uploading':
+                    indicator.classList.add('status-uploading');
+                    statusText.textContent = '📤 Subiendo archivos...';
+                    btnStart.disabled = true;
+                    btnStop.disabled = true;
+                    recordingBadge.classList.remove('active');
+                    break;
+                case 'analyzing':
+                    indicator.classList.add('status-analyzing');
+                    statusText.textContent = '🤖 Analizando con Vertex AI...';
+                    break;
+                case 'complete':
+                    indicator.classList.add('status-complete');
+                    statusText.textContent = '✅ Captura completada';
+                    btnStart.disabled = false;
+                    btnStop.disabled = true;
+                    break;
+                default:
+                    indicator.classList.add('status-idle');
+                    statusText.textContent = 'Listo para capturar';
+                    btnStart.disabled = false;
+                    btnStop.disabled = true;
+            }
+        }
+
+        function resetCapture() {
+            videoChunks = [];
+            audioChunks = [];
+            capturedPhoto = null;
+            capturedVideo = null;
+            capturedAudio = null;
+            videoStream = null;
+            mediaRecorder = null;
+            audioRecorder = null;
+        }
     </script>
 </body>
 </html>

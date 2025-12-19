@@ -4,3 +4,4 @@ python-dotenv==1.0.0
 google-cloud-storage==2.10.0
 google-cloud-aiplatform==1.38.1
 google-auth==2.24.0
+sendgrid==6.10.0

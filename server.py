@@ -5,10 +5,13 @@ import sys
 import os
 import requests
 import time
+import json
 from dotenv import load_dotenv
 from google.cloud import storage
 from google.auth import default
 from google.auth.transport.requests import Request
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail, Email, To, Content
 
 # Cargar variables de entorno
 load_dotenv()
@@ -37,6 +40,11 @@ storage_client = storage.Client()
 VERTEX_AI_ENDPOINT = os.getenv('VERTEX_AI_ENDPOINT', 'https://southamerica-east1-aiplatform.googleapis.com/v1/projects/peaceful-impact-478922-t6/locations/southamerica-east1/endpoints/4530889505971896320:predict')
 VERTEX_AI_PROJECT = os.getenv('VERTEX_AI_PROJECT', 'peaceful-impact-478922-t6')
 
+# Configuración de Email
+SENDGRID_API_KEY = os.getenv('SENDGRID_API_KEY', '')
+ALERT_EMAIL = os.getenv('ALERT_EMAIL', 'cpardave@unsa.edu.pe')
+FROM_EMAIL = os.getenv('FROM_EMAIL', 'alerts@iot-fire-detection.com')
+
 # Cliente de autenticación
 try:
     # Intentar usar credenciales por defecto (funciona en App Engine)
@@ -55,6 +63,123 @@ def get_auth_token():
     except Exception as e:
         print(f"   [ERROR AUTH] {e}")
         return None
+
+# ============================================
+# FUNCIONES DE EMAIL
+# ============================================
+
+def send_email_notification(subject, body, to_email=None):
+    """Enviar notificación por email usando SendGrid"""
+    try:
+        if not SENDGRID_API_KEY:
+            print("   [EMAIL] SendGrid API Key no configurada, saltando email")
+            return False
+        
+        recipient = to_email or ALERT_EMAIL
+        
+        message = Mail(
+            from_email=FROM_EMAIL,
+            to_emails=recipient,
+            subject=subject,
+            html_content=body
+        )
+        
+        sg = SendGridAPIClient(SENDGRID_API_KEY)
+        response = sg.send(message)
+        
+        print(f"   [EMAIL] Enviado a {recipient}: {subject} (Status: {response.status_code})")
+        return response.status_code == 202
+        
+    except Exception as e:
+        print(f"   [ERROR EMAIL] {e}")
+        return False
+
+def send_alert_email(alerta_data):
+    """Enviar email cuando Arduino detecta alerta"""
+    subject = "🔥 [ALERTA IoT] Posible incendio detectado - Activar cámara"
+    
+    body = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
+        <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            <h1 style="color: #d32f2f; text-align: center;">🔥 ALERTA DE INCENDIO</h1>
+            
+            <div style="background: #ffebee; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h2 style="color: #c62828; margin-top: 0;">Datos del sensor:</h2>
+                <p><strong>📅 Fecha/Hora:</strong> {alerta_data.get('timestamp', 'N/A')}</p>
+                <p><strong>🌡️ Temperatura:</strong> {alerta_data.get('temperatura', 'N/A')}°C</p>
+                <p><strong>💡 Nivel de luz:</strong> {alerta_data.get('luz', 'N/A')}</p>
+                <p><strong>⚠️ Estado:</strong> <span style="color: red; font-weight: bold;">ALERTA</span></p>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <p style="font-size: 18px;">Por favor, active la cámara para capturar evidencia:</p>
+                <a href="https://project-iot-481620.ue.r.appspot.com/camera" 
+                   style="display: inline-block; background: #d32f2f; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-size: 18px; font-weight: bold;">
+                    📷 ABRIR CÁMARA
+                </a>
+            </div>
+            
+            <p style="color: #666; font-size: 12px; text-align: center;">
+                Sistema IoT de Detección de Incendios<br>
+                Este es un mensaje automático.
+            </p>
+        </div>
+    </body>
+    </html>
+    """
+    
+    return send_email_notification(subject, body)
+
+def send_fire_detected_email(analysis_result, files_info):
+    """Enviar email cuando Vertex AI confirma fuego"""
+    subject = "🚨 [CONFIRMADO] Vertex AI ha detectado FUEGO/HUMO"
+    
+    confidence = analysis_result.get('confidence', 0) * 100
+    
+    body = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
+        <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            <h1 style="color: #d32f2f; text-align: center;">🚨 FUEGO CONFIRMADO POR IA</h1>
+            
+            <div style="background: #ff5252; color: white; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
+                <h2 style="margin: 0;">⚠️ ACCIÓN INMEDIATA REQUERIDA</h2>
+                <p style="font-size: 24px; margin: 10px 0;">Confianza: {confidence:.1f}%</p>
+            </div>
+            
+            <div style="background: #fff3e0; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h3 style="color: #e65100; margin-top: 0;">📊 Resultados del análisis:</h3>
+                <p><strong>🔥 Fuego detectado:</strong> SÍ</p>
+                <p><strong>📈 Confianza:</strong> {confidence:.1f}%</p>
+                <p><strong>🔢 Detecciones:</strong> {analysis_result.get('detections_count', 'N/A')}</p>
+                <p><strong>📁 Tipo de archivo:</strong> {analysis_result.get('file_type', 'N/A')}</p>
+            </div>
+            
+            <div style="background: #e3f2fd; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h3 style="color: #1565c0; margin-top: 0;">📂 Archivos capturados:</h3>
+                <ul>
+                    {''.join([f"<li><a href='{url}'>{name}</a></li>" for name, url in files_info.items() if url])}
+                </ul>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="https://project-iot-481620.ue.r.appspot.com/dashboard" 
+                   style="display: inline-block; background: #1976d2; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-size: 16px;">
+                    📊 VER DASHBOARD
+                </a>
+            </div>
+            
+            <p style="color: #666; font-size: 12px; text-align: center;">
+                Sistema IoT de Detección de Incendios con Vertex AI<br>
+                Análisis realizado: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+            </p>
+        </div>
+    </body>
+    </html>
+    """
+    
+    return send_email_notification(subject, body)
 
 alertas = []
 
@@ -406,38 +531,14 @@ def recibir_alerta():
         print(f"Luz: {luz}")
         print(f"Estado: {estado}")
         
-        # Si es ALERTA REAL, capturar multimedia
+        # Si es ALERTA REAL, enviar email de notificación
         if estado == "alert":
-            print("\n>>> DISPARANDO CAPTURA DE MULTIMEDIA <<<")
+            print("\n>>> ALERTA DETECTADA - ENVIANDO EMAIL <<<")
             
-            # Capturar foto
-            foto = capture_photo()
-            if foto:
-                alerta["archivos"]["photo"] = foto
-                # Agregar análisis de Vertex AI si está disponible
-                if isinstance(foto, dict) and foto.get('vertex_analysis'):
-                    alerta["vertex_ai_analysis"] = {
-                        "photo": foto['vertex_analysis']
-                    }
+            # Enviar email para que el usuario active la cámara
+            send_alert_email(alerta)
             
-            # Capturar video
-            if CAPTURE_VIDEO:
-                video = record_video(duration=DURATION)
-                if video:
-                    alerta["archivos"]["video"] = video
-                    # Agregar análisis de Vertex AI si está disponible
-                    if isinstance(video, dict) and video.get('vertex_analysis'):
-                        if "vertex_ai_analysis" not in alerta:
-                            alerta["vertex_ai_analysis"] = {}
-                        alerta["vertex_ai_analysis"]["video"] = video['vertex_analysis']
-            
-            # Capturar audio
-            if CAPTURE_AUDIO:
-                audio = record_audio(duration=DURATION)
-                if audio:
-                    alerta["archivos"]["audio"] = audio
-            
-            print(">>> CAPTURA COMPLETADA <<<")
+            print(">>> EMAIL ENVIADO <<<")
         
         print("="*60)
         
@@ -572,6 +673,229 @@ def upload_audio():
     except Exception as e:
         print(f"   [ERROR AUDIO] {e}")
         return jsonify({"error": str(e)}), 500
+
+# ============================================
+# ENDPOINTS VERTEX AI Y DASHBOARD
+# ============================================
+
+@app.route('/analyze', methods=['POST'])
+def analyze_files():
+    """Analizar archivos con Vertex AI y enviar notificaciones"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({"error": "No se recibieron datos"}), 400
+        
+        photo_url = data.get('photo_url')
+        video_url = data.get('video_url')
+        audio_url = data.get('audio_url')
+        
+        results = {
+            "timestamp": datetime.now().isoformat(),
+            "photo_analysis": None,
+            "video_analysis": None,
+            "fire_detected": False,
+            "max_confidence": 0.0
+        }
+        
+        files_info = {}
+        
+        # Analizar foto con Vertex AI
+        if photo_url:
+            print(f"   [ANALYZE] Analizando foto: {photo_url}")
+            # Convertir URL pública a GCS URI
+            gcs_uri = photo_url.replace('https://storage.googleapis.com/', 'gs://')
+            photo_result = analyze_image_vertex_ai(gcs_uri)
+            results["photo_analysis"] = photo_result
+            files_info["photo"] = photo_url
+            
+            if photo_result and photo_result.get('fire_detected'):
+                results["fire_detected"] = True
+                results["max_confidence"] = max(results["max_confidence"], photo_result.get('confidence', 0))
+        
+        # Analizar video con Vertex AI
+        if video_url:
+            print(f"   [ANALYZE] Analizando video: {video_url}")
+            gcs_uri = video_url.replace('https://storage.googleapis.com/', 'gs://')
+            video_result = analyze_video_vertex_ai(gcs_uri)
+            results["video_analysis"] = video_result
+            files_info["video"] = video_url
+            
+            if video_result and video_result.get('fire_detected'):
+                results["fire_detected"] = True
+                results["max_confidence"] = max(results["max_confidence"], video_result.get('confidence', 0))
+        
+        if audio_url:
+            files_info["audio"] = audio_url
+        
+        # Guardar en historial de análisis
+        analysis_record = {
+            "timestamp": results["timestamp"],
+            "files": files_info,
+            "results": results,
+            "fire_detected": results["fire_detected"],
+            "confidence": results["max_confidence"]
+        }
+        
+        if "analysis_history" not in globals():
+            global analysis_history
+            analysis_history = []
+        analysis_history.append(analysis_record)
+        
+        # Enviar email si se detectó fuego
+        if results["fire_detected"]:
+            print("   [ALERT] 🔥 FUEGO DETECTADO POR VERTEX AI - Enviando email")
+            send_fire_detected_email({
+                'fire_detected': True,
+                'confidence': results["max_confidence"],
+                'detections_count': results.get('photo_analysis', {}).get('detections_count', 0),
+                'file_type': 'image/video'
+            }, files_info)
+        
+        return jsonify({
+            "status": "success",
+            "results": results,
+            "fire_detected": results["fire_detected"],
+            "confidence": results["max_confidence"]
+        }), 200
+        
+    except Exception as e:
+        print(f"   [ERROR ANALYZE] {e}")
+        return jsonify({"error": str(e)}), 500
+
+def analyze_image_vertex_ai(image_gcs_uri):
+    """Analizar imagen usando el endpoint de Vertex AI"""
+    try:
+        auth_token = get_auth_token()
+        if not auth_token:
+            return {"error": "No authentication token", "fire_detected": False, "confidence": 0}
+        
+        payload = {
+            "instances": [{"image_url": image_gcs_uri}]
+        }
+        
+        headers = {
+            "Authorization": f"Bearer {auth_token}",
+            "Content-Type": "application/json"
+        }
+        
+        print(f"   [VERTEX AI] Enviando imagen para análisis: {image_gcs_uri}")
+        
+        response = requests.post(
+            VERTEX_AI_ENDPOINT,
+            headers=headers,
+            json=payload,
+            timeout=60
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            return process_vertex_response(result, 'image')
+        else:
+            print(f"   [VERTEX AI ERROR] {response.status_code}: {response.text}")
+            return {"error": f"API Error: {response.status_code}", "fire_detected": False, "confidence": 0}
+            
+    except Exception as e:
+        print(f"   [VERTEX AI ERROR] {e}")
+        return {"error": str(e), "fire_detected": False, "confidence": 0}
+
+def analyze_video_vertex_ai(video_gcs_uri):
+    """Analizar video usando el endpoint de Vertex AI"""
+    try:
+        auth_token = get_auth_token()
+        if not auth_token:
+            return {"error": "No authentication token", "fire_detected": False, "confidence": 0}
+        
+        payload = {
+            "instances": [{"video_url": video_gcs_uri}],
+            "parameters": {
+                "frame_interval": 15,
+                "max_detections": 10,
+                "analyze_audio": True,
+                "audio_top_k": 5
+            }
+        }
+        
+        headers = {
+            "Authorization": f"Bearer {auth_token}",
+            "Content-Type": "application/json"
+        }
+        
+        print(f"   [VERTEX AI] Enviando video para análisis: {video_gcs_uri}")
+        
+        response = requests.post(
+            VERTEX_AI_ENDPOINT,
+            headers=headers,
+            json=payload,
+            timeout=300
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            return process_vertex_response(result, 'video')
+        else:
+            print(f"   [VERTEX AI ERROR] {response.status_code}: {response.text}")
+            return {"error": f"API Error: {response.status_code}", "fire_detected": False, "confidence": 0}
+            
+    except Exception as e:
+        print(f"   [VERTEX AI ERROR] {e}")
+        return {"error": str(e), "fire_detected": False, "confidence": 0}
+
+def process_vertex_response(result, file_type):
+    """Procesar respuesta de Vertex AI"""
+    fire_detected = False
+    max_confidence = 0.0
+    detections_count = 0
+    all_detections = []
+    
+    if 'predictions' in result:
+        for prediction in result['predictions']:
+            if 'detections' in prediction:
+                for detection in prediction.get('detections', []):
+                    dets = detection.get('detections', [detection])
+                    for det in dets:
+                        detections_count += 1
+                        class_name = det.get('class', '').lower()
+                        confidence = det.get('confidence', 0)
+                        
+                        all_detections.append({
+                            'class': class_name,
+                            'confidence': confidence
+                        })
+                        
+                        if 'fire' in class_name or 'smoke' in class_name or 'fuego' in class_name or 'humo' in class_name:
+                            fire_detected = True
+                            max_confidence = max(max_confidence, confidence)
+    
+    return {
+        'fire_detected': fire_detected,
+        'confidence': max_confidence,
+        'detections_count': detections_count,
+        'detections': all_detections[:10],  # Limitar a 10
+        'file_type': file_type,
+        'raw_predictions': result.get('predictions', [])
+    }
+
+@app.route('/dashboard')
+def dashboard():
+    """Dashboard para visualizar alertas y resultados"""
+    return render_template('dashboard.html')
+
+@app.route('/api/dashboard-data')
+def dashboard_data():
+    """Datos para el dashboard"""
+    global analysis_history
+    if 'analysis_history' not in globals():
+        analysis_history = []
+    
+    return jsonify({
+        "alertas": alertas[-20:],
+        "analysis_history": analysis_history[-20:] if analysis_history else [],
+        "total_alertas": len(alertas),
+        "total_analysis": len(analysis_history) if analysis_history else 0,
+        "fires_detected": sum(1 for a in (analysis_history or []) if a.get('fire_detected', False))
+    })
 
 # ============================================
 # MAIN
