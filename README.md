@@ -256,21 +256,6 @@ curl -X POST "https://tu-n8n-instance/webhook/send-alerta" \
   -d '{"timestamp": "2025-12-19 12:30:45", "temperature": 45.5, "light": 850}'
 ```
 
-## Solución de Problemas
-
-### Problemas Comunes
-
-1. **Error 403 en Vertex AI**
-   - Verificar permisos de service account en proyecto compañero
-   - Ejecutar: `gcloud projects add-iam-policy-binding tu-vertex-project-id --member="serviceAccount:tu-proyecto-id@appspot.gserviceaccount.com" --role="roles/aiplatform.user"`
-
-2. **Uploads no funcionan**
-   - Verificar permisos de Cloud Storage
-   - Revisar logs: `gcloud app logs tail -s default`
-
-3. **Emails no llegan**
-   - Verificar configuración de n8n
-   - Revisar estado de workflows
 
 ## Métricas y Monitoreo
 
@@ -288,16 +273,4 @@ curl -X POST "https://tu-n8n-instance/webhook/send-alerta" \
 
 ## Licencia
 
-Este proyecto está bajo la Licencia MIT. Ver archivo `LICENSE` para más detalles.
-
-## Contacto
-
-- **Email**: tu-email@ejemplo.com
-- **Proyecto**: Sistema IoT de Detección de Incendios
-- **Institución**: Universidad Nacional de San Agustín (UNSA)
-
----
-
-**¡Sistema IoT inteligente con IA listo para detectar incendios en tiempo real!**
-
-*Desarrollado por el equipo de estudiantes de Ingeniería de Sistemas - UNSA*
+Este proyecto está bajo la Licencia MIT. Ver archivo `LICENSE.md` para más detalles.
