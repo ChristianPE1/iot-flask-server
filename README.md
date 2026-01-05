@@ -2,15 +2,6 @@
 
 Sistema de monitoreo IoT inteligente **completamente automático** que combina sensores Arduino, captura automática de multimedia desde IP Webcam (Android) vía ngrok, y análisis con Inteligencia Artificial para detectar incendios en tiempo real sin intervención manual.
 
-## Equipo de Desarrollo
-
-- **Christian Pardave Espinoza** - Porcentaje de aporte [18%]
-- **Berly Diaz Castro** - Porcentaje de aporte [18%]
-- **Diego Apaza Andaluz** - Porcentaje de aporte [16%]
-- **Merisabel Ruelas Quenaya** - Porcentaje de aporte [16%]
-- **Yanira Suni Quispe** - Porcentaje de aporte [16%]
-- **Joselyn Quispe Huanca** - Porcentaje de aporte [16%]
-
 ## Características Principales
 
 - **API REST** para recepción de alertas desde sensores Arduino
@@ -223,29 +214,6 @@ https://tu-app.appspot.com/alert
 - **Throttling de 60 segundos** entre capturas automáticas
 - Evita múltiples emails y sobrecarga del sistema
 
-## Estructura del Proyecto
-
-```
-proyecto-iot/
-├── api-iot/                    # Backend Flask
-│   ├── server.py              # Servidor principal con captura automática
-│   ├── main.py               # Punto de entrada App Engine
-│   ├── requirements.txt      # Dependencias Python
-│   ├── app.yaml              # Configuración App Engine
-│   ├── start-ngrok.sh        # Script para iniciar túnel ngrok
-│   ├── CONEXION_CONFIRMADA.md # Documentación de configuración verificada
-│   ├── .env                  # Variables de entorno
-│   └── templates/            # Plantillas HTML
-│       ├── index.html
-│       ├── dashboard.html
-│       └── camera.html
-├── arduino/                   # Código Arduino
-│   └── codigoarduino.ino
-├── docs/                     # Documentación
-│   ├── CONFIGURACION_N8N.md
-│   └── INSTRUCCIONES_PARA_COMPANERO.md
-└── README.md                 # Este archivo
-```
 
 ## Almacenamiento en la Nube
 
@@ -287,6 +255,11 @@ https://storage.googleapis.com/tu-bucket-name/audio/
 - Emails automáticos con templates HTML profesionales
 - Notificaciones en tiempo real
 - Links directos a dashboard y cámara
+
+![Web_Dashboard](https://github.com/user-attachments/assets/4beb030f-5b92-4491-b888-c1adb58c9323)
+
+![Web_Confirmacion_Alerta](https://github.com/user-attachments/assets/a666ecad-3e29-4983-8692-9c32c9e062d4)
+
 
 ## Pruebas
 
