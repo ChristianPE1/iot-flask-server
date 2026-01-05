@@ -256,8 +256,10 @@ https://storage.googleapis.com/tu-bucket-name/audio/
 - Notificaciones en tiempo real
 - Links directos a dashboard y cámara
 
+#### Dashboard Web
 ![Web_Dashboard](https://github.com/user-attachments/assets/4beb030f-5b92-4491-b888-c1adb58c9323)
 
+#### Confirmación de Incendio enviado via Gmail
 ![Web_Confirmacion_Alerta](https://github.com/user-attachments/assets/a666ecad-3e29-4983-8692-9c32c9e062d4)
 
 
